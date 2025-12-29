@@ -81,13 +81,32 @@ export const api = {
         if (!res.ok) throw new Error('Failed to create task');
         return res.json();
     },
-    updateTaskStatus: async (id: string, status: string, evidence_url?: string) => {
+    updateTaskStatus: async (id: string, status: string, evidence?: string | File) => {
+        const formData = new FormData();
+        formData.append('status', status);
+        if (evidence) {
+            if (typeof evidence === 'string') {
+                formData.append('evidence_url', evidence);
+            } else {
+                formData.append('evidence', evidence);
+            }
+        }
+
         const res = await fetch(`${API_URL}/tasks/${id}/status`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status, evidence_url }),
+            // headers: { 'Content-Type': 'multipart/form-data' }, // Fetch automatically sets content-type for FormData
+            body: formData,
         });
         if (!res.ok) throw new Error('Failed to update task status');
+        return res.json();
+    },
+    updateTaskPriority: async (id: string, new_priority_score: number, reason: string) => {
+        const res = await fetch(`${API_URL}/tasks/${id}/priority`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ new_priority_score, reason }),
+        });
+        if (!res.ok) throw new Error('Failed to update task priority');
         return res.json();
     }
 };

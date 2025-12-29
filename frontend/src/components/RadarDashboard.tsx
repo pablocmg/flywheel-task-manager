@@ -12,24 +12,59 @@ interface Props {
     data: NodeHealth[];
 }
 
+const getHealthColor = (health: number) => {
+    if (health < 30) return 'var(--danger)'; // Red
+    if (health < 70) return 'var(--warning)'; // Amber
+    return 'var(--success)'; // Green
+};
+
+const CustomTick = ({ payload, x, y, textAnchor, stroke, radius, data }: any) => {
+    const node = data.find((d: any) => d.name === payload.value);
+    const color = node ? getHealthColor(node.health) : 'var(--text-secondary)';
+
+    return (
+        <g className="recharts-layer recharts-polar-angle-axis-tick">
+            <text
+                radius={radius}
+                stroke={stroke}
+                x={x}
+                y={y}
+                className="recharts-text recharts-polar-angle-axis-tick-value"
+                textAnchor={textAnchor}
+            >
+                <tspan x={x} dy="0em" fill={color} fontWeight="bold">
+                    {payload.value}
+                </tspan>
+                <tspan x={x} dy="1em" fill="var(--text-muted)" fontSize="0.8em">
+                    {node?.health}%
+                </tspan>
+            </text>
+        </g>
+    );
+};
+
 export const RadarDashboard: React.FC<Props> = ({ data }) => {
     return (
         <div style={{ width: '100%', height: 400 }}>
             <ResponsiveContainer>
-                <RadarChart cx="50%" cy="50%" outerRadius="80%" data={data}>
+                <RadarChart cx="50%" cy="50%" outerRadius="70%" data={data}>
                     <PolarGrid stroke="var(--glass-border)" />
-                    <PolarAngleAxis dataKey="name" tick={{ fill: 'var(--text-secondary)' }} />
+                    <PolarAngleAxis
+                        dataKey="name"
+                        tick={(props) => <CustomTick {...props} data={data} />}
+                    />
                     <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: 'var(--text-muted)' }} />
                     <Radar
                         name="Node Health"
                         dataKey="health"
                         stroke="var(--primary)"
                         fill="var(--primary)"
-                        fillOpacity={0.5}
+                        fillOpacity={0.4}
                     />
                     <Tooltip
                         contentStyle={{ backgroundColor: 'var(--bg-panel)', border: 'var(--glass-border)', color: 'var(--text-primary)' }}
                         itemStyle={{ color: 'var(--primary)' }}
+                        formatter={(value: number) => [value + '%', 'Health']}
                     />
                     <Legend />
                 </RadarChart>

@@ -34,7 +34,7 @@ const Planning: React.FC = () => {
 
     // Task Creation State
     const [newTaskObjId, setNewTaskObjId] = useState<string | null>(null);
-    const [newTask, setNewTask] = useState({ title: '', description: '', weight: 3, week_number: getCurrentWeek() });
+    const [newTask, setNewTask] = useState<{ title: string, description: string, weight: number, week_number: number, impacted_node_ids: string[] }>({ title: '', description: '', weight: 3, week_number: getCurrentWeek(), impacted_node_ids: [] });
 
     function getCurrentWeek() {
         const d = new Date();
@@ -152,6 +152,29 @@ const Planning: React.FC = () => {
                                                             style={{ width: '100%', marginBottom: '8px', padding: '8px', background: 'var(--bg-app)', border: '1px solid var(--text-muted)', color: 'white' }}
                                                             autoFocus
                                                         />
+                                                        <input
+                                                            placeholder="Description"
+                                                            value={newTask.description}
+                                                            onChange={e => setNewTask({ ...newTask, description: e.target.value })}
+                                                            style={{ width: '100%', marginBottom: '8px', padding: '8px', background: 'var(--bg-app)', border: '1px solid var(--text-muted)', color: 'white' }}
+                                                        />
+
+                                                        {/* User Story 2.1: Enablers / Impacted Nodes */}
+                                                        <div style={{ marginBottom: '8px' }}>
+                                                            <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: 'var(--text-secondary)' }}>Enables / Impacts other nodes:</label>
+                                                            <select
+                                                                multiple
+                                                                value={newTask.impacted_node_ids}
+                                                                onChange={e => setNewTask({ ...newTask, impacted_node_ids: Array.from(e.target.selectedOptions, option => option.value) })}
+                                                                style={{ width: '100%', height: '60px', padding: '4px', background: 'var(--bg-app)', border: '1px solid var(--text-muted)', color: 'white' }}
+                                                            >
+                                                                {nodes.filter(n => n.id !== node.id).map(n => (
+                                                                    <option key={n.id} value={n.id}>{n.name}</option>
+                                                                ))}
+                                                            </select>
+                                                            <small style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Hold Ctrl/Cmd to select multiple</small>
+                                                        </div>
+
                                                         <div style={{ display: 'flex', gap: '8px' }}>
                                                             <input
                                                                 placeholder="Week #"
