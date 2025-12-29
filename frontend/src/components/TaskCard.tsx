@@ -63,7 +63,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate }) => {
                 </div>
                 <div style={{ textAlign: 'right' }}>
                     <div style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-light)' }}>
-                        {task.priority_score.toFixed(1)}
+                        {Number(task.priority_score || 0).toFixed(1)}
                     </div>
                     <small style={{ color: 'var(--text-muted)' }}>Priority Score</small>
                 </div>
