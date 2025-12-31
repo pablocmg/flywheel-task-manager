@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { ChevronDown, ChevronRight, Plus, Calendar, CheckSquare, Target, TrendingUp, Trash, Pencil } from 'lucide-react';
+import { Plus, Target, TrendingUp, Trash, Pencil } from 'lucide-react';
 
 interface KeyResult {
     id: string;
@@ -29,11 +29,8 @@ interface Task {
     project_id?: string;
 }
 
-interface Project {
-    id: string;
-    name: string;
-    description?: string;
-}
+
+
 
 interface Node {
     id: string;
@@ -44,7 +41,7 @@ interface Node {
 
 const Planning: React.FC = () => {
     const [nodes, setNodes] = useState<Node[]>([]);
-    const [allProjects, setAllProjects] = useState<Project[]>([]);
+    // const [allProjects, setAllProjects] = useState<Project[]>([]); // removing unused
     const [loading, setLoading] = useState(true);
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
@@ -62,44 +59,25 @@ const Planning: React.FC = () => {
 
 
     // Task Creation
-    const [newTaskObjId, setNewTaskObjId] = useState<string | null>(null);
-    const [newTaskProjects, setNewTaskProjects] = useState<Project[]>([]);
-    const [newTask, setNewTask] = useState<{ title: string, description: string, weight: number, week_number: number, impacted_node_ids: string[], project_id: string }>({
-        title: '',
-        description: '',
-        weight: 3,
-        week_number: getCurrentWeek(),
-        impacted_node_ids: [],
-        project_id: ''
-    });
+    // Task Creation - Unused vars removed
 
-    function getCurrentWeek() {
-        const d = new Date();
-        d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-        const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-        return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-    }
+
+    // Unused getCurrentWeek removed
 
     useEffect(() => {
         loadData();
     }, []);
 
-    useEffect(() => {
-        if (newTaskObjId) {
-            loadProjectsForObjective(newTaskObjId);
-        } else {
-            setNewTaskProjects([]);
-        }
-    }, [newTaskObjId]);
+    // Unused useEffect removed
 
     const loadData = async () => {
         setLoading(true);
         try {
-            const [nodesData, projectsData] = await Promise.all([
+            const [nodesData] = await Promise.all([
                 api.getNodes(),
-                api.getProjects()
+                // api.getProjects()
             ]);
-            setAllProjects(projectsData);
+            // setAllProjects(projectsData);
 
             // Load objectives and tasks for each node
             const nodesWithObjs = await Promise.all(nodesData.map(async (n: Node) => {
@@ -121,35 +99,9 @@ const Planning: React.FC = () => {
         setLoading(false);
     };
 
-    const reloadObjective = async (nodeId: string, objectiveId: string) => {
-        try {
-            const tasks = await api.getTasksByObjective(objectiveId);
-            const objData = nodes.find(n => n.id === nodeId)?.objectives?.find(o => o.id === objectiveId);
-            if (!objData) return;
+    /* Unused functions removed: reloadObjective */
 
-            const updatedObj = { ...objData, tasks };
-
-            setNodes(prevNodes => prevNodes.map(n => {
-                if (n.id !== nodeId) return n;
-                return {
-                    ...n,
-                    objectives: n.objectives?.map(o => o.id === objectiveId ? updatedObj : o)
-                };
-            }));
-        } catch (err) {
-            console.error('Error reloading objective:', err);
-            loadData(); // Fallback to full reload if targeted reload fails
-        }
-    };
-
-    const loadProjectsForObjective = async (objId: string) => {
-        try {
-            const projects = await api.getProjectsByObjective(objId);
-            setNewTaskProjects(projects);
-        } catch (err) {
-            console.error('Error loading projects for objective:', err);
-        }
-    };
+    // Unused loadProjectsForObjective removed
 
     const handleUpdateObjective = async (objId: string, newDesc: string) => {
         if (!selectedNodeId) return;
@@ -251,23 +203,7 @@ const Planning: React.FC = () => {
         }
     };
 
-    const handleCreateTask = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!newTaskObjId) return;
-        try {
-            await api.createTask({
-                ...newTask,
-                objective_id: newTaskObjId,
-                assignee_id: null
-            });
-            setNewTaskObjId(null);
-            setNewTask({ title: '', description: '', weight: 3, week_number: getCurrentWeek(), impacted_node_ids: [], project_id: '' });
-            loadData();
-        } catch (err) {
-            console.error(err);
-            alert('Error al crear la tarea');
-        }
-    };
+    /* Unused functions removed: handleCreateTask */
 
     const selectedNode = nodes.find(n => n.id === selectedNodeId);
     const annualObj = selectedNode?.objectives?.find(o => o.type === 'annual');

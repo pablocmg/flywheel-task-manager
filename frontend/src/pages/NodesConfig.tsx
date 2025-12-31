@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { FlywheelNode } from '../components/FlywheelNode';
 import { NodeEditor } from '../components/NodeEditor';
-import { Plus, Trash, AlertTriangle } from 'lucide-react';
+import { Plus, AlertTriangle } from 'lucide-react';
 
 interface Node {
     id: string;
@@ -54,17 +54,7 @@ const NodesConfig: React.FC = () => {
         }
     };
 
-    const handleUpdateNode = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!editingNode) return;
-        try {
-            await api.updateNode(editingNode.id, editingNode);
-            setEditingNode(null);
-            loadNodes();
-        } catch (err) {
-            console.error(err);
-        }
-    };
+    // Unused handleUpdateNode removed
 
     const handleDeleteNode = async (id: string) => {
         try {

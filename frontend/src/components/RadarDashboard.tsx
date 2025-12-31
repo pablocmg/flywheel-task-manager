@@ -49,6 +49,7 @@ export const RadarDashboard: React.FC<Props> = ({ data }) => {
             <ResponsiveContainer>
                 <RadarChart cx="50%" cy="50%" outerRadius="70%" data={data}>
                     <PolarGrid stroke="var(--glass-border)" />
+                    {/* @ts-ignore - Recharts type definition mismatch */}
                     <PolarAngleAxis
                         dataKey="name"
                         tick={(props) => <CustomTick {...props} data={data} />}
@@ -64,7 +65,7 @@ export const RadarDashboard: React.FC<Props> = ({ data }) => {
                     <Tooltip
                         contentStyle={{ backgroundColor: 'var(--bg-panel)', border: 'var(--glass-border)', color: 'var(--text-primary)' }}
                         itemStyle={{ color: 'var(--primary)' }}
-                        formatter={(value: number) => [value + '%', 'Health']}
+                        formatter={(value: any) => [value + '%', 'Health']}
                     />
                     <Legend />
                 </RadarChart>
