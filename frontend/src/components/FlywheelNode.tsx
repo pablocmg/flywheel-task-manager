@@ -1,15 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { api } from '../services/api';
-import { ChevronDown, ChevronRight, Plus, Trash, Edit } from 'lucide-react';
-
-interface Objective {
-    id: string;
-    description: string;
-    target_value: number;
-    current_value: number;
-    quarter: string;
-    year: number;
-}
+import React from 'react';
+import { Pencil, Eye, EyeOff, Star, DollarSign } from 'lucide-react';
 
 interface NodeProps {
     node: {
@@ -17,118 +7,147 @@ interface NodeProps {
         name: string;
         description: string;
         color: string;
+        is_central?: boolean;
+        is_active?: boolean;
+        generates_revenue?: boolean;
     };
     onUpdate: () => void;
-    onDelete: () => void;
+    onToggleActive: () => void;
 }
 
-export const FlywheelNode: React.FC<NodeProps> = ({ node, onUpdate, onDelete }) => {
-    const [expanded, setExpanded] = useState(false);
-    const [objectives, setObjectives] = useState<Objective[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [showAddObj, setShowAddObj] = useState(false);
-    const [newObj, setNewObj] = useState({ description: '', target_value: 100, quarter: 'Q1', year: 2025 });
-
-    useEffect(() => {
-        if (expanded) {
-            loadObjectives();
-        }
-    }, [expanded]);
-
-    const loadObjectives = async () => {
-        setLoading(true);
-        try {
-            const data = await api.getObjectives(node.id);
-            setObjectives(data);
-        } catch (err) {
-            console.error(err);
-        }
-        setLoading(false);
-    };
-
-    const handleAddObjective = async (e: React.FormEvent) => {
-        e.preventDefault();
-        try {
-            await api.createObjective({ ...newObj, node_id: node.id });
-            setShowAddObj(false);
-            loadObjectives();
-            setNewObj({ description: '', target_value: 100, quarter: 'Q1', year: 2025 });
-        } catch (err) {
-            console.error(err);
-        }
-    };
-
-    const handleDeleteObjective = async (id: string) => {
-        if (confirm('Delete this objective?')) {
-            try {
-                await api.deleteObjective(id);
-                loadObjectives();
-            } catch (err) {
-                console.error(err);
-            }
-        }
-    };
+export const FlywheelNode: React.FC<NodeProps> = ({ node, onUpdate, onToggleActive }) => {
+    const isCentral = node.is_central;
+    const isActive = node.is_active !== false;
+    const generatesRevenue = node.generates_revenue;
 
     return (
-        <div className="glass-panel" style={{ marginBottom: 'var(--space-md)', borderLeft: `4px solid ${node.color || 'var(--primary)'}` }}>
+        <div
+            className="glass-panel"
+            style={{
+                marginBottom: 'var(--space-md)',
+                borderLeft: `4px solid ${node.color || 'var(--primary)'}`,
+                border: isCentral && isActive
+                    ? '2px solid #fbbf24'
+                    : generatesRevenue && isActive
+                        ? '2px solid rgba(16, 185, 129, 0.5)'
+                        : '1px solid rgba(255,255,255,0.1)',
+                boxShadow: isCentral && isActive
+                    ? '0 0 25px rgba(251, 191, 36, 0.3), inset 0 0 30px rgba(251, 191, 36, 0.05)'
+                    : generatesRevenue && isActive
+                        ? '0 0 20px rgba(16, 185, 129, 0.2), inset 0 0 20px rgba(16, 185, 129, 0.03)'
+                        : undefined,
+                background: isCentral && isActive
+                    ? 'linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, transparent 50%)'
+                    : generatesRevenue && isActive
+                        ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, transparent 50%)'
+                        : undefined,
+                opacity: isActive ? 1 : 0.5,
+                filter: isActive ? 'none' : 'grayscale(100%)',
+                transition: 'all 0.3s ease',
+                borderRadius: 'var(--radius-lg)'
+            }}
+        >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-md)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', cursor: 'pointer' }} onClick={() => setExpanded(!expanded)}>
-                    {expanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-                    <div>
-                        <h3 style={{ margin: 0 }}>{node.name}</h3>
-                        <small className="text-muted">{node.description}</small>
+                <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        {isCentral && isActive && <Star size={18} fill="#fbbf24" color="#fbbf24" />}
+                        {generatesRevenue && isActive && !isCentral && (
+                            <div style={{
+                                background: 'linear-gradient(135deg, #10b981, #059669)',
+                                borderRadius: '50%',
+                                width: '24px',
+                                height: '24px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                boxShadow: '0 0 12px rgba(16, 185, 129, 0.5)'
+                            }}>
+                                <DollarSign size={14} color="white" strokeWidth={3} />
+                            </div>
+                        )}
+                        <h3 style={{ margin: 0, fontSize: isCentral ? '1.1rem' : '1rem' }}>{node.name}</h3>
+                        {isCentral && isActive && (
+                            <span style={{
+                                fontSize: '0.65rem',
+                                background: 'linear-gradient(135deg, #fbbf24, #f59e0b)',
+                                color: 'black',
+                                padding: '3px 8px',
+                                borderRadius: '12px',
+                                fontWeight: 'bold',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px'
+                            }}>
+                                MOTOR CENTRAL
+                            </span>
+                        )}
+                        {generatesRevenue && isActive && !isCentral && (
+                            <span style={{
+                                fontSize: '0.65rem',
+                                background: 'linear-gradient(135deg, #10b981, #059669)',
+                                color: 'white',
+                                padding: '3px 8px',
+                                borderRadius: '12px',
+                                fontWeight: 'bold',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px',
+                                boxShadow: '0 0 8px rgba(16, 185, 129, 0.3)'
+                            }}>
+                                💰 GENERA INGRESOS
+                            </span>
+                        )}
+                        {!isActive && (
+                            <span style={{
+                                fontSize: '0.65rem',
+                                background: 'rgba(71, 85, 105, 0.5)',
+                                color: '#94a3b8',
+                                padding: '3px 8px',
+                                borderRadius: '12px',
+                                fontWeight: 'bold',
+                                textTransform: 'uppercase'
+                            }}>
+                                INACTIVO
+                            </span>
+                        )}
+                    </div>
+                    <small className="text-muted" style={{ marginTop: '4px', display: 'block' }}>{node.description}</small>
+                    <div style={{ marginTop: '8px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        💡 Gestiona los OKRs de este nodo desde la página de <strong>Planificación</strong>
                     </div>
                 </div>
-                <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-                    <button className="btn-icon" onClick={onUpdate}><Edit size={16} /></button>
-                    <button className="btn-icon" onClick={onDelete}><Trash size={16} /></button>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                        className="btn-icon"
+                        onClick={(e) => { e.stopPropagation(); onUpdate(); }}
+                        title="Editar Nodo"
+                        style={{
+                            background: 'rgba(255,255,255,0.05)',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            borderRadius: '8px',
+                            padding: '8px',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                        }}
+                    >
+                        <Pencil size={16} />
+                    </button>
+                    <button
+                        className="btn-icon"
+                        onClick={(e) => { e.stopPropagation(); onToggleActive(); }}
+                        title={isActive ? 'Desactivar Nodo' : 'Activar Nodo'}
+                        style={{
+                            background: isActive ? 'rgba(34, 197, 94, 0.1)' : 'rgba(100, 116, 139, 0.2)',
+                            border: `1px solid ${isActive ? 'rgba(34, 197, 94, 0.3)' : 'rgba(100, 116, 139, 0.3)'}`,
+                            color: isActive ? '#22c55e' : '#64748b',
+                            borderRadius: '8px',
+                            padding: '8px',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease'
+                        }}
+                    >
+                        {isActive ? <Eye size={16} /> : <EyeOff size={16} />}
+                    </button>
                 </div>
             </div>
-
-            {expanded && (
-                <div style={{ padding: '0 var(--space-md) var(--space-md) var(--space-xl)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-sm)' }}>
-                        <h4 style={{ margin: 0 }}>Strategic Objectives (OKRs)</h4>
-                        <button onClick={() => setShowAddObj(!showAddObj)} style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Plus size={16} /> Add OKR
-                        </button>
-                    </div>
-
-                    {showAddObj && (
-                        <form onSubmit={handleAddObjective} style={{ marginBottom: 'var(--space-md)', padding: 'var(--space-sm)', background: 'rgba(255,255,255,0.05)', borderRadius: 'var(--radius-md)' }}>
-                            <input
-                                placeholder="Description"
-                                value={newObj.description}
-                                onChange={e => setNewObj({ ...newObj, description: e.target.value })}
-                                style={{ width: '100%', marginBottom: '8px', padding: '8px', background: 'var(--bg-app)', border: '1px solid var(--text-muted)', color: 'white' }}
-                            />
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <input type="number" value={newObj.target_value} onChange={e => setNewObj({ ...newObj, target_value: Number(e.target.value) })} placeholder="Target" style={{ width: '80px', padding: '8px' }} />
-                                <input value={newObj.quarter} onChange={e => setNewObj({ ...newObj, quarter: e.target.value })} placeholder="Q1" style={{ width: '60px', padding: '8px' }} />
-                                <button type="submit" style={{ flex: 1, background: 'var(--primary)', color: 'white', border: 'none', cursor: 'pointer' }}>Save</button>
-                            </div>
-                        </form>
-                    )}
-
-                    {loading ? <p>Loading OKRs...</p> : (
-                        <ul style={{ listStyle: 'none', padding: 0 }}>
-                            {objectives.map(obj => (
-                                <li key={obj.id} style={{ marginBottom: '8px', padding: '8px', background: 'rgba(255,255,255,0.02)', borderRadius: '4px', display: 'flex', justifyContent: 'space-between' }}>
-                                    <div>
-                                        <span>{obj.description}</span>
-                                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                                            Target: {obj.target_value} | Current: {obj.current_value} | {obj.quarter} {obj.year}
-                                        </div>
-                                    </div>
-                                    <button onClick={() => handleDeleteObjective(obj.id)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer' }}>
-                                        <Trash size={14} />
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </div>
-            )}
         </div>
     );
 };

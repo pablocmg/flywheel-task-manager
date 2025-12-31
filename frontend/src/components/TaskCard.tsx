@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../services/api';
-import { CheckCircle, Circle, Clock, ExternalLink, Upload, FileText } from 'lucide-react';
+import { Circle, Clock, ExternalLink, Upload, FileText } from 'lucide-react';
 
 interface Task {
     id: string;
@@ -10,14 +10,19 @@ interface Task {
     weight: number;
     priority_score: number;
     evidence_url?: string;
+    objective_title?: string;
+    impacted_node_count?: number;
+    impacted_nodes?: string[]; // Array of Node IDs
+    project_name?: string;
 }
 
 interface TaskCardProps {
     task: Task;
     onUpdate: () => void;
+    nodeColors?: Record<string, string>; // Map ID -> Color
 }
 
-export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate }) => {
+export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, nodeColors }) => {
     const [loading, setLoading] = useState(false);
     const [evidenceUrl, setEvidenceUrl] = useState(task.evidence_url || '');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -25,7 +30,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate }) => {
     const handleStatusChange = async (newStatus: string) => {
         // User Story 3.1: Block closure if no evidence (Url or File)
         if (newStatus === 'Done' && !evidenceUrl && !selectedFile) {
-            alert('Please provide evidence (URL or File) to mark as Done.');
+            alert('Por favor proporciona evidencia (URL o Archivo) para marcar como Hecho.');
             return;
         }
 
@@ -37,7 +42,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate }) => {
             onUpdate();
         } catch (err) {
             console.error(err);
-            alert('Failed to update task');
+            alert('Error al actualizar la tarea');
         }
         setLoading(false);
     };
@@ -45,17 +50,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate }) => {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             setSelectedFile(e.target.files[0]);
-            // Clear URL if file is selected to avoid confusion, or keep both? 
-            // API logic prefers one 'evidence' field often, but our API handles string|File.
-            // Let's rely on selectedFile precedence if both exist in my logic above.
         }
     };
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case 'Done': return 'var(--success)';
-            case 'Doing': return 'var(--warning)';
-            case 'Waiting': return 'var(--text-muted)';
+            case 'Done': return 'var(--state-success)';
+            case 'Doing': return 'var(--state-warning)';
+            case 'Waiting': return 'var(--state-neutral)';
             default: return 'var(--text-secondary)';
         }
     };
@@ -69,6 +71,28 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate }) => {
             flexDirection: 'column',
             gap: 'var(--space-sm)'
         }}>
+            {/* Objective Breadcrumb */}
+            {task.objective_title && (
+                <div style={{
+                    fontSize: '0.75rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    color: 'var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                }}>
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--text-muted)' }}></span>
+                    {task.objective_title}
+                    {task.project_name && (
+                        <>
+                            <span style={{ margin: '0 4px' }}>•</span>
+                            <span style={{ color: '#60a5fa', fontWeight: 'bold' }}>{task.project_name}</span>
+                        </>
+                    )}
+                </div>
+            )}
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
                     <h3 style={{ margin: '0 0 4px 0', fontSize: '1.1rem' }}>{task.title}</h3>
@@ -78,10 +102,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate }) => {
                     <div style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-light)' }}>
                         {Number(task.priority_score || 0).toFixed(1)}
                     </div>
-                    <small style={{ color: 'var(--text-muted)' }}>Priority Score</small>
                 </div>
             </div>
 
+            {/* Badges & Controls */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', marginTop: 'var(--space-sm)', flexWrap: 'wrap' }}>
                 <select
                     value={task.status}
@@ -90,22 +114,52 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate }) => {
                     style={{
                         background: 'var(--bg-card)',
                         color: 'white',
-                        border: '1px solid var(--text-muted)',
+                        border: '1px solid var(--glass-border)',
                         padding: '4px 8px',
-                        borderRadius: '4px'
+                        borderRadius: '4px',
+                        fontSize: '0.9rem'
                     }}
                 >
-                    <option value="Todo">Todo</option>
-                    <option value="Doing">Doing</option>
-                    <option value="Waiting">Waiting</option>
-                    <option value="Done">Done</option>
+                    <option value="Todo">Pendiente</option>
+                    <option value="Doing">En Progreso</option>
+                    <option value="Waiting">Esperando</option>
+                    <option value="Done">Hecho</option>
                 </select>
 
+                {/* Visual Indicators */}
+                <div style={{ display: 'flex', gap: '12px' }}>
+                    {/* Dependency Badge */}
+                    {task.impacted_node_count && task.impacted_node_count > 0 ? (
+                        <div title={`${task.impacted_node_count} dependencias aguas abajo`} style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--node-amber)', fontSize: '0.8rem' }}>
+                            <div style={{ position: 'relative' }}>
+                                <Circle size={14} />
+                                <span style={{ position: 'absolute', top: '-6px', right: '-6px', fontSize: '0.6rem', fontWeight: 'bold' }}>{task.impacted_node_count}</span>
+                            </div>
+                            <small>Impacto</small>
+                        </div>
+                    ) : null}
+
+                    {/* Bridge Links (Nodes Impacted) */}
+                    {task.impacted_nodes && nodeColors && (
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                            {task.impacted_nodes.map(nodeId => (
+                                <div key={nodeId} title="Impacta Nodo" style={{
+                                    width: '8px',
+                                    height: '8px',
+                                    borderRadius: '50%',
+                                    background: nodeColors[nodeId] || 'gray',
+                                    boxShadow: `0 0 5px ${nodeColors[nodeId] || 'gray'}`
+                                }}></div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
                 {task.status === 'Done' || task.status === 'Doing' ? (
-                    <div style={{ flex: 1, display: 'flex', gap: '8px', alignItems: 'center', minWidth: '300px' }}>
+                    <div style={{ flex: 1, display: 'flex', gap: '8px', alignItems: 'center', minWidth: '300px', marginLeft: 'auto' }}>
                         {/* URL Input */}
                         <input
-                            placeholder="Evidence URL..."
+                            placeholder="URL de evidencia..."
                             value={evidenceUrl}
                             onChange={(e) => setEvidenceUrl(e.target.value)}
                             disabled={!!selectedFile}
@@ -115,7 +169,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate }) => {
                                 border: 'none',
                                 borderBottom: '1px solid var(--text-muted)',
                                 color: 'white',
-                                padding: '4px'
+                                padding: '4px',
+                                fontSize: '0.9rem'
                             }}
                         />
 
@@ -142,8 +197,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate }) => {
             </div>
 
             {task.status === 'Waiting' && (
-                <div style={{ fontSize: '0.85rem', color: 'var(--warning)', fontStyle: 'italic' }}>
-                    * This task is waiting on dependencies from other nodes.
+                <div style={{ fontSize: '0.85rem', color: 'var(--state-warning)', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Clock size={14} /> Esperando dependencias de otros nodos.
                 </div>
             )}
         </div>

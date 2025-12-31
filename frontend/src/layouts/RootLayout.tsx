@@ -14,19 +14,19 @@ export const RootLayout: React.FC = () => {
                 <nav className="nav-menu">
                     <NavLink to="/" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                         <LayoutDashboard size={20} />
-                        <span>Dashboard</span>
+                        <span>Panel</span>
                     </NavLink>
                     <NavLink to="/nodes" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                         <Settings size={20} />
-                        <span>Nodes Config</span>
+                        <span>Config Nodos</span>
                     </NavLink>
                     <NavLink to="/planning" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                         <Calendar size={20} />
-                        <span>Planning</span>
+                        <span>Planificación</span>
                     </NavLink>
                     <NavLink to="/execution" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                         <CheckSquare size={20} />
-                        <span>Execution</span>
+                        <span>Ejecución</span>
                     </NavLink>
                 </nav>
             </aside>

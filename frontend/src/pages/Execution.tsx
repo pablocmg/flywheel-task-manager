@@ -29,10 +29,14 @@ interface Task {
     priority_score: number;
     evidence_url?: string;
     week_number: number;
+    objective_title?: string;
+    impacted_node_count?: number;
+    impacted_nodes?: string[];
+    project_name?: string;
 }
 
 // Sortable Item Component
-function SortableTaskItem(props: { task: Task; onUpdate: () => void }) {
+function SortableTaskItem(props: { task: Task; onUpdate: () => void; nodeColors: Record<string, string> }) {
     const {
         attributes,
         listeners,
@@ -49,7 +53,7 @@ function SortableTaskItem(props: { task: Task; onUpdate: () => void }) {
 
     return (
         <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-            <TaskCard task={props.task} onUpdate={props.onUpdate} />
+            <TaskCard task={props.task} onUpdate={props.onUpdate} nodeColors={props.nodeColors} />
         </div>
     );
 }
@@ -57,6 +61,10 @@ function SortableTaskItem(props: { task: Task; onUpdate: () => void }) {
 const Execution: React.FC = () => {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [loading, setLoading] = useState(true);
+    const [nodeColors, setNodeColors] = useState<Record<string, string>>({});
+    const [selectedProject, setSelectedProject] = useState<string>('all');
+    const [allProjects, setAllProjects] = useState<string[]>([]);
+
     // Calculate current week
     const getWeekNumber = (d: Date) => {
         d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -80,25 +88,37 @@ const Execution: React.FC = () => {
         })
     );
 
-    const loadTasks = async () => {
-        // setLoading(true); // Don't block render on load for debugging
+    useEffect(() => {
+        loadNodesAndTasks();
+    }, [selectedWeek]);
+
+    const loadNodesAndTasks = async () => {
+        setLoading(true);
         try {
+            // Fetch Nodes for color mapping
+            const nodesData = await api.getNodes();
+            const colorMap: Record<string, string> = {};
+            nodesData.forEach((n: any) => {
+                colorMap[n.id] = n.color;
+            });
+            setNodeColors(colorMap);
+
             const data = await api.getTasksByWeek(selectedWeek);
             // Sort by priority_score
             data.sort((a: Task, b: Task) => b.priority_score - a.priority_score);
             setTasks(data);
+
+            // Extract unique project names for filter
+            const projects = Array.from(new Set(data.map((t: Task) => t.project_name).filter(Boolean))) as string[];
+            setAllProjects(projects);
         } catch (err) {
             console.error(err);
         }
         setLoading(false);
     };
 
-    useEffect(() => {
-        loadTasks();
-    }, [selectedWeek]);
-
     const handleUpdate = () => {
-        loadTasks();
+        loadNodesAndTasks();
     };
 
     const handleDragEnd = (event: DragEndEvent) => {
@@ -126,7 +146,8 @@ const Execution: React.FC = () => {
         // 2. Call API (Log Audit) - In real app, we also update priority scores to persist order.
         // For this MVP, we just log the reason.
         try {
-            await api.updateTaskPriority(dragResult.activeId, reason);
+            const task = tasks.find(t => t.id === dragResult.activeId);
+            await api.updateTaskPriority(dragResult.activeId, task?.priority_score || 0, reason);
         } catch (e) {
             console.error("Failed to log priority change", e);
             // Revert or alert?
@@ -143,17 +164,21 @@ const Execution: React.FC = () => {
         setReason('');
     };
 
+    const filteredTasks = selectedProject === 'all'
+        ? tasks
+        : tasks.filter(t => t.project_name === selectedProject);
+
     return (
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-lg)' }}>
                 <div>
                     <h1 className="title-gradient" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
-                        <Calendar /> Execution Mode
+                        <Calendar /> Modo Ejecución
                     </h1>
-                    <p className="text-muted">Focus on completing high-impact tasks for Week {selectedWeek}. Drag to reprioritize.</p>
+                    <p className="text-muted">Concéntrate en completar tareas de alto impacto para la Semana {selectedWeek}. Arrastra para repriorizar.</p>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
-                    <label>Week:</label>
+                    <label>Semana:</label>
                     <input
                         type="number"
                         value={selectedWeek}
@@ -161,24 +186,39 @@ const Execution: React.FC = () => {
                         style={{ padding: '8px', width: '80px', background: 'var(--bg-app)', color: 'white', border: '1px solid var(--glass-border)' }}
                     />
                 </div>
+                {allProjects.length > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+                        <label>Proyecto:</label>
+                        <select
+                            value={selectedProject}
+                            onChange={(e) => setSelectedProject(e.target.value)}
+                            style={{ padding: '8px', background: 'var(--bg-app)', color: 'white', border: '1px solid var(--glass-border)' }}
+                        >
+                            <option value="all">Todos los proyectos</option>
+                            {allProjects.map(p => (
+                                <option key={p} value={p}>{p}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
             </div>
 
-            {loading ? <p>Loading prioritized tasks...</p> : (
+            {loading ? <p>Cargando tareas priorizadas...</p> : (
                 <DndContext
                     sensors={sensors}
                     collisionDetection={closestCenter}
                     onDragEnd={handleDragEnd}
                 >
                     <SortableContext
-                        items={tasks.map(t => t.id)}
+                        items={filteredTasks.map(t => t.id)}
                         strategy={verticalListSortingStrategy}
                     >
                         <div className="tasks-grid">
-                            {tasks.length === 0 ? (
-                                <p className="text-muted">No tasks scheduled for this week.</p>
+                            {filteredTasks.length === 0 ? (
+                                <p className="text-muted">No hay tareas que coincidan con los filtros.</p>
                             ) : (
-                                tasks.map(task => (
-                                    <SortableTaskItem key={task.id} task={task} onUpdate={handleUpdate} />
+                                filteredTasks.map(task => (
+                                    <SortableTaskItem key={task.id} task={task} onUpdate={handleUpdate} nodeColors={nodeColors} />
                                 ))
                             )}
                         </div>
@@ -194,19 +234,19 @@ const Execution: React.FC = () => {
                     <div className="glass-panel" style={{ width: '400px', padding: 'var(--space-lg)', background: 'var(--bg-panel)' }}>
                         <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
                             <AlertCircle size={20} color="var(--warning)" />
-                            Reprioritization Log
+                            Registro de Repriorización
                         </h3>
-                        <p>You are changing the strategic priority order. Please state the reason for Audit Log.</p>
+                        <p>Estás cambiando el orden de prioridad estratégica. Por favor indica el motivo para el Registro de Auditoría.</p>
                         <textarea
                             value={reason}
                             onChange={e => setReason(e.target.value)}
-                            placeholder="Reason for change..."
+                            placeholder="Motivo del cambio..."
                             style={{ width: '100%', height: '80px', margin: '10px 0', background: 'var(--bg-app)', color: 'white', border: '1px solid var(--text-muted)' }}
                             autoFocus
                         />
                         <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                            <button onClick={cancelDrag} style={{ background: 'transparent', border: '1px solid var(--text-muted)', color: 'var(--text-secondary)', padding: '8px 16px', cursor: 'pointer' }}>Cancel</button>
-                            <button onClick={confirmReprioritization} disabled={!reason} style={{ background: reason ? 'var(--primary)' : 'gray', color: 'white', border: 'none', padding: '8px 16px', cursor: 'pointer' }}>Confirm</button>
+                            <button onClick={cancelDrag} style={{ background: 'transparent', border: '1px solid var(--text-muted)', color: 'var(--text-secondary)', padding: '8px 16px', cursor: 'pointer' }}>Cancelar</button>
+                            <button onClick={confirmReprioritization} disabled={!reason} style={{ background: reason ? 'var(--primary)' : 'gray', color: 'white', border: 'none', padding: '8px 16px', cursor: 'pointer' }}>Confirmar</button>
                         </div>
                     </div>
                 </div>

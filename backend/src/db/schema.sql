@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS nodes (
     owner_id UUID, -- References an external auth user or internal user table
     health INTEGER DEFAULT 100 CHECK (health >= 0 AND health <= 100),
     description TEXT,
+    is_central BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -19,18 +20,46 @@ CREATE TABLE IF NOT EXISTS objectives (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     node_id UUID NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
     description TEXT NOT NULL,
-    target_value NUMERIC DEFAULT 100,
-    current_value NUMERIC DEFAULT 0,
-    quarter VARCHAR(10), -- e.g., "Q1", "Q2"
+    type VARCHAR(20) DEFAULT 'quarterly', -- 'annual', 'quarterly'
+    quarter VARCHAR(10), -- e.g., "Q1", "Q2" for quarterly, NULL for annual
     year INTEGER,        -- e.g., 2025
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2.1 Key Results (Lower Level of Strategic Objectives)
+CREATE TABLE IF NOT EXISTS key_results (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    objective_id UUID NOT NULL REFERENCES objectives(id) ON DELETE CASCADE,
+    description TEXT NOT NULL,
+    target_value NUMERIC DEFAULT 100,
+    current_value NUMERIC DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2.5 Projects Table (Global projects linked to objectives)
+CREATE TABLE IF NOT EXISTS projects (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    status VARCHAR(50) DEFAULT 'Active', -- Active, Completed, Paused
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2.6 Project-Objectives Link (M:M relationship)
+CREATE TABLE IF NOT EXISTS project_objectives (
+    project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    objective_id UUID NOT NULL REFERENCES objectives(id) ON DELETE CASCADE,
+    PRIMARY KEY (project_id, objective_id)
 );
 
 -- 3. Tasks (Operational Level)
 CREATE TABLE IF NOT EXISTS tasks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     objective_id UUID NOT NULL REFERENCES objectives(id) ON DELETE CASCADE,
+    project_id UUID REFERENCES projects(id) ON DELETE SET NULL,
     title VARCHAR(255) NOT NULL,
     description TEXT,
     assignee_id UUID,
@@ -70,4 +99,15 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     reason_for_change TEXT, -- Mandatory for reprioritization
     details JSONB,
     performed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 6. Node Interactions (Solar System Edges)
+CREATE TABLE IF NOT EXISTS node_interactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    source_node_id UUID NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+    target_node_id UUID NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+    label VARCHAR(255),
+    type VARCHAR(50) DEFAULT 'one-way', -- 'one-way', 'mutual'
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(source_node_id, target_node_id)
 );

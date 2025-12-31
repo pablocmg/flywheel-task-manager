@@ -1,44 +1,77 @@
 :root {
-  /* Premium Dark Theme Palette */
-  --bg-app: #09090b; /* Zinc 950 */
-  --bg-panel: #18181b; /* Zinc 900 */
-  --bg-card: rgba(24, 24, 27, 0.6);
-  
-  /* Text */
-  --text-primary: #fafafa;
-  --text-secondary: #a1a1aa;
-  --text-muted: #52525b;
+  /* Unicorn Standards V2: "Deep Space Command" */
 
-  /* Brand / Accents */
-  --primary: #8b5cf6; /* Violet 500 */
-  --primary-glow: rgba(139, 92, 246, 0.3);
-  --secondary: #ec4899; /* Pink 500 */
-  
-  /* Semantic */
-  --success: #10b981;
-  --warning: #f59e0b;
-  --danger: #ef4444;
-  --info: #3b82f6;
+  /* Backgrounds: Richer, deeper, not just flat navy */
+  --bg-app: #0f172a;
+  /* Fallback */
+  --bg-gradient-start: #0f172a;
+  /* Slate 900 */
+  --bg-gradient-end: #020617;
+  /* Slate 950 */
+
+  /* Panels: Lighter, more transparent glass */
+  --bg-panel: rgba(30, 41, 59, 0.7);
+  /* Slate 800 with opacity */
+  --bg-card: rgba(15, 23, 42, 0.6);
+  /* Slate 900 with opacity */
+  --bg-card-hover: rgba(30, 41, 59, 0.8);
+
+  /* Text: Pure white for primary, clear greys for secondary */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  /* Slate 400 */
+  --text-muted: #64748b;
+  /* Slate 500 */
+
+  /* The 5 Flywheel Node Colors - Neon/Vibrant versions */
+  --node-turquoise: #2DD4BF;
+  /* Teal 400 */
+  --node-amethyst: #A78BFA;
+  /* Violet 400 */
+  --node-amber: #FBBF24;
+  /* Amber 400 */
+  --node-emerald: #34D399;
+  /* Emerald 400 */
+  --node-cobalt: #60A5FA;
+  /* Blue 400 */
+
+  /* Semantic States - Softer but clear */
+  --state-success: #4ade80;
+  /* Green 400 */
+  --state-warning: #fbbf24;
+  /* Amber 400 */
+  --state-alert: #f87171;
+  /* Red 400 */
+  --state-neutral: #94a3b8;
 
   /* Spacing */
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;
   --space-md: 1rem;
   --space-lg: 1.5rem;
-  --space-xl: 2rem;
+  --space-xl: 3rem;
+  /* More breathing room */
 
   /* Effects */
-  --glass-backdrop: blur(16px);
+  --glass-backdrop: blur(20px);
   --glass-border: 1px solid rgba(255, 255, 255, 0.08);
-  --radius-md: 0.5rem;
-  --radius-lg: 1rem;
-  --shadow-glow: 0 0 20px var(--primary-glow);
+  --glass-border-light: 1px solid rgba(255, 255, 255, 0.15);
+  --radius-md: 0.75rem;
+  --radius-lg: 1.25rem;
+  --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+  --shadow-glow: 0 0 25px rgba(45, 212, 191, 0.15);
+  /* Subtle turquoise glow */
 }
 
 body {
   background-color: var(--bg-app);
+  background-image: radial-gradient(circle at 50% 0%, #1e293b 0%, #020617 70%);
+  background-attachment: fixed;
+  /* Parallax feel */
   color: var(--text-primary);
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   margin: 0;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
 }

@@ -61,6 +61,31 @@ export const api = {
         return res.json();
     },
 
+    // Key Results
+    createKeyResult: async (data: any) => {
+        const res = await fetch(`${API_URL}/key-results`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error('Failed to create key result');
+        return res.json();
+    },
+    updateKeyResult: async (id: string, data: any) => {
+        const res = await fetch(`${API_URL}/key-results/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error('Failed to update key result');
+        return res.json();
+    },
+    deleteKeyResult: async (id: string) => {
+        const res = await fetch(`${API_URL}/key-results/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete key result');
+        return res.json();
+    },
+
     // Tasks
     getTasksByObjective: async (objectiveId: string) => {
         const res = await fetch(`${API_URL}/tasks/objective/${objectiveId}`);
@@ -107,6 +132,62 @@ export const api = {
             body: JSON.stringify({ new_priority_score, reason }),
         });
         if (!res.ok) throw new Error('Failed to update task priority');
+        return res.json();
+    },
+
+    // Interactions
+    getInteractions: async () => {
+        const res = await fetch(`${API_URL}/interactions`);
+        if (!res.ok) throw new Error('Failed to fetch interactions');
+        return res.json();
+    },
+    createInteraction: async (data: any) => {
+        const res = await fetch(`${API_URL}/interactions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error('Failed to create interaction');
+        return res.json();
+    },
+    deleteInteraction: async (id: string) => {
+        const res = await fetch(`${API_URL}/interactions/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete interaction');
+        return res.json();
+    },
+
+    // Projects
+    getProjects: async () => {
+        const res = await fetch(`${API_URL}/projects`);
+        if (!res.ok) throw new Error('Failed to fetch projects');
+        return res.json();
+    },
+    getProjectsByObjective: async (objectiveId: string) => {
+        const res = await fetch(`${API_URL}/projects/objective/${objectiveId}`);
+        if (!res.ok) throw new Error('Failed to fetch projects for objective');
+        return res.json();
+    },
+    createProject: async (data: any) => {
+        const res = await fetch(`${API_URL}/projects`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error('Failed to create project');
+        return res.json();
+    },
+    updateProject: async (id: string, data: any) => {
+        const res = await fetch(`${API_URL}/projects/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error('Failed to update project');
+        return res.json();
+    },
+    deleteProject: async (id: string) => {
+        const res = await fetch(`${API_URL}/projects/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete project');
         return res.json();
     }
 };

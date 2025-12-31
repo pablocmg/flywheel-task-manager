@@ -5,7 +5,16 @@ import * as db from '../db';
 export const getTasksByObjective = async (req: Request, res: Response) => {
     const { objectiveId } = req.params;
     try {
-        const result = await db.query('SELECT * FROM tasks WHERE objective_id = $1 ORDER BY created_at DESC', [objectiveId]);
+        const query = `
+            SELECT t.*, o.description as objective_title, p.name as project_name,
+            (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count
+            FROM tasks t
+            JOIN objectives o ON t.objective_id = o.id
+            LEFT JOIN projects p ON t.project_id = p.id
+            WHERE t.objective_id = $1 
+            ORDER BY t.created_at DESC
+        `;
+        const result = await db.query(query, [objectiveId]);
         res.json(result.rows);
     } catch (error) {
         console.error('Error fetching tasks:', error);
@@ -16,7 +25,17 @@ export const getTasksByObjective = async (req: Request, res: Response) => {
 export const getTasksByWeek = async (req: Request, res: Response) => {
     const { weekNumber } = req.params;
     try {
-        const result = await db.query('SELECT * FROM tasks WHERE week_number = $1 ORDER BY priority_score DESC', [weekNumber]);
+        const query = `
+            SELECT t.*, o.description as objective_title, p.name as project_name,
+            (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count,
+            (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes
+            FROM tasks t
+            JOIN objectives o ON t.objective_id = o.id
+            LEFT JOIN projects p ON t.project_id = p.id
+            WHERE t.week_number = $1 
+            ORDER BY t.priority_score DESC
+        `;
+        const result = await db.query(query, [weekNumber]);
         res.json(result.rows);
     } catch (error) {
         console.error('Error fetching tasks by week:', error);
@@ -25,7 +44,7 @@ export const getTasksByWeek = async (req: Request, res: Response) => {
 };
 
 export const createTask = async (req: Request, res: Response) => {
-    const { objective_id, title, description, assignee_id, week_number, weight, due_date, impacted_node_ids } = req.body;
+    const { objective_id, project_id, title, description, assignee_id, week_number, weight, due_date, impacted_node_ids } = req.body;
 
     // Calculate Priority Score
     // Algo: PriorityScore = RemainingDays * (ObjectiveWeight * TaskImportance) + (Count(NodesImpacted) * 2)
@@ -56,8 +75,8 @@ export const createTask = async (req: Request, res: Response) => {
         await db.query('BEGIN');
 
         const result = await db.query(
-            'INSERT INTO tasks (objective_id, title, description, assignee_id, week_number, weight, due_date, priority_score) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-            [objective_id, title, description, assignee_id, week_number, taskWeight, due_date, priority_score]
+            'INSERT INTO tasks (objective_id, project_id, title, description, assignee_id, week_number, weight, due_date, priority_score) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+            [objective_id, project_id || null, title, description, assignee_id, week_number, taskWeight, due_date, priority_score]
         );
         const task = result.rows[0];
 

@@ -28,9 +28,20 @@
 .glass-panel {
   background: var(--bg-card);
   backdrop-filter: var(--glass-backdrop);
+  -webkit-backdrop-filter: var(--glass-backdrop);
   border: var(--glass-border);
   border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+.glass-panel:hover {
+  background: var(--bg-card-hover);
+  border: var(--glass-border-light);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
 
 .container {
   max-width: 1200px;

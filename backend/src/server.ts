@@ -9,6 +9,9 @@ import { Server } from 'socket.io';
 import nodesRoutes from './routes/nodes.routes';
 import objectivesRoutes from './routes/objectives.routes';
 import tasksRoutes from './routes/tasks.routes';
+import interactionsRoutes from './routes/interactions.routes';
+import projectsRoutes from './routes/projects.routes';
+import keyResultsRoutes from './routes/key_results.routes';
 
 dotenv.config();
 
@@ -29,6 +32,9 @@ app.use(express.json());
 app.use('/api/nodes', nodesRoutes);
 app.use('/api/objectives', objectivesRoutes);
 app.use('/api/tasks', tasksRoutes);
+app.use('/api/interactions', interactionsRoutes);
+app.use('/api/projects', projectsRoutes);
+app.use('/api/key-results', keyResultsRoutes);
 
 const PORT = process.env.PORT || 3000;
 
