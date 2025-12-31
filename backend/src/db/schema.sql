@@ -66,8 +66,8 @@ CREATE TABLE IF NOT EXISTS tasks (
     week_number INTEGER, -- ISO week number
     weight INTEGER DEFAULT 3 CHECK (weight >= 1 AND weight <= 5),
     priority_score NUMERIC DEFAULT 0, -- Calculated: RemainingDays * (ObjWeight * TaskImp) + ...
-    status VARCHAR(50) DEFAULT 'Todo', -- Todo, Doing, Waiting, Done
-    due_date TIMESTAMP WITH TIME ZONE,
+    status VARCHAR(50) DEFAULT 'Backlog', -- Backlog, Todo, Doing, Waiting, Done
+    target_date TIMESTAMP WITH TIME ZONE,
     
     -- Evidence for "Done" status
     evidence_url TEXT,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { ChevronDown, ChevronRight, Plus, Calendar, CheckSquare, Target, TrendingUp, Trash } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, Calendar, CheckSquare, Target, TrendingUp, Trash, Pencil } from 'lucide-react';
 
 interface KeyResult {
     id: string;
@@ -51,15 +51,15 @@ const Planning: React.FC = () => {
     // KR Management
     const [showAddKR, setShowAddKR] = useState<string | null>(null); // objective ID
     const [newKR, setNewKR] = useState({ description: '', target_value: 100 });
+    const [krError, setKrError] = useState<string | null>(null);
+    const [editingKrId, setEditingKrId] = useState<string | null>(null);
+    const [editingKrDesc, setEditingKrDesc] = useState('');
 
     // Objective editing
     const [editingObjId, setEditingObjId] = useState<string | null>(null);
     const [editingObjDesc, setEditingObjDesc] = useState('');
 
-    // Project Management
-    const [showProjectsModal, setShowProjectsModal] = useState(false);
-    const [editingProject, setEditingProject] = useState<any>(null);
-    const [newProjectData, setNewProjectData] = useState({ name: '', description: '', objective_ids: [] as string[] });
+
 
     // Task Creation
     const [newTaskObjId, setNewTaskObjId] = useState<string | null>(null);
@@ -121,6 +121,27 @@ const Planning: React.FC = () => {
         setLoading(false);
     };
 
+    const reloadObjective = async (nodeId: string, objectiveId: string) => {
+        try {
+            const tasks = await api.getTasksByObjective(objectiveId);
+            const objData = nodes.find(n => n.id === nodeId)?.objectives?.find(o => o.id === objectiveId);
+            if (!objData) return;
+
+            const updatedObj = { ...objData, tasks };
+
+            setNodes(prevNodes => prevNodes.map(n => {
+                if (n.id !== nodeId) return n;
+                return {
+                    ...n,
+                    objectives: n.objectives?.map(o => o.id === objectiveId ? updatedObj : o)
+                };
+            }));
+        } catch (err) {
+            console.error('Error reloading objective:', err);
+            loadData(); // Fallback to full reload if targeted reload fails
+        }
+    };
+
     const loadProjectsForObjective = async (objId: string) => {
         try {
             const projects = await api.getProjectsByObjective(objId);
@@ -144,25 +165,89 @@ const Planning: React.FC = () => {
     };
 
     const handleAddKR = async (objId: string) => {
-        if (!newKR.description) return;
+        console.log('[handleAddKR] CALLED with objId:', objId);
+        console.log('[handleAddKR] newKR:', newKR);
+
+        if (!newKR.description.trim()) {
+            console.log('[handleAddKR] ABORT: description is empty');
+            return;
+        }
+
+        // Frontend validation: check for duplicates
+        const currentObj = nodes.find(n => n.id === selectedNodeId)?.objectives?.find(o => o.id === objId);
+        const isDuplicate = currentObj?.key_results?.some(
+            kr => kr.description.trim().toLowerCase() === newKR.description.trim().toLowerCase()
+        );
+
+        if (isDuplicate) {
+            console.log('[handleAddKR] ABORT: duplicate KR detected');
+            setKrError('Ya existe un KR con ese nombre');
+            return;
+        }
+
+        setKrError(null);
+
         try {
-            await api.createKeyResult({ ...newKR, objective_id: objId });
+            console.log('[handleAddKR] Calling API...');
+            const newKRData = await api.createKeyResult({ ...newKR, objective_id: objId });
+            console.log('[handleAddKR] API response:', newKRData);
+
+            // Optimistic UI update - add KR immediately to state
+            setNodes(prevNodes => prevNodes.map(n => {
+                if (n.id !== selectedNodeId) return n;
+                return {
+                    ...n,
+                    objectives: n.objectives?.map(o => {
+                        if (o.id !== objId) return o;
+                        return {
+                            ...o,
+                            key_results: [...(o.key_results || []), newKRData]
+                        };
+                    })
+                };
+            }));
+            console.log('[handleAddKR] State updated, closing form');
             setShowAddKR(null);
             setNewKR({ description: '', target_value: 100 });
-            loadData();
-        } catch (err) {
-            console.error(err);
+            console.log('[handleAddKR] SUCCESS');
+        } catch (err: any) {
+            console.error('[handleAddKR] ERROR:', err);
+            alert(err.message || 'Error al crear el resultado clave');
         }
     };
 
-    const handleDeleteKR = async (krId: string) => {
-        if (confirm('¿Eliminar este resultado clave?')) {
-            try {
-                await api.deleteKeyResult(krId);
-                loadData();
-            } catch (err) {
-                console.error(err);
-            }
+    const handleDeleteKR = async (krId: string, objId: string, e: React.MouseEvent) => {
+        console.log('[handleDeleteKR] CALLED with krId:', krId, 'objId:', objId);
+        e.stopPropagation();
+        e.preventDefault();
+
+        // Skip confirm for now - delete directly
+        console.log('[handleDeleteKR] Proceeding with delete (no confirm)...');
+
+        console.log('[handleDeleteKR] Updating UI optimistically...');
+        // Optimistic UI update - remove KR immediately from state
+        setNodes(prevNodes => prevNodes.map(n => {
+            if (n.id !== selectedNodeId) return n;
+            return {
+                ...n,
+                objectives: n.objectives?.map(o => {
+                    if (o.id !== objId) return o;
+                    return {
+                        ...o,
+                        key_results: o.key_results?.filter(kr => kr.id !== krId)
+                    };
+                })
+            };
+        }));
+
+        try {
+            console.log('[handleDeleteKR] Calling API...');
+            await api.deleteKeyResult(krId);
+            console.log('[handleDeleteKR] SUCCESS');
+        } catch (err) {
+            console.error('[handleDeleteKR] ERROR:', err);
+            alert('Error al eliminar el resultado clave');
+            loadData(); // Reload to restore state on error
         }
     };
 
@@ -189,9 +274,7 @@ const Planning: React.FC = () => {
     const quarterlyObjs = selectedNode?.objectives?.filter(o => o.type === 'quarterly').sort((a, b) => (a.quarter || '').localeCompare(b.quarter || ''));
 
     const renderObjectiveCard = (obj: Objective, title: string, color: string) => {
-        const progress = obj.key_results?.length > 0
-            ? Math.round((obj.key_results.reduce((sum, kr) => sum + (kr.current_value / kr.target_value), 0) / obj.key_results.length) * 100)
-            : 0;
+        // Removed progress calculation - not needed
 
         return (
             <div key={obj.id} className="glass-panel" style={{ padding: 'var(--space-md)', borderLeft: `4px solid ${color}` }}>
@@ -220,7 +303,6 @@ const Planning: React.FC = () => {
                         )}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{progress}%</div>
                         <button
                             onClick={() => setShowAddKR(showAddKR === obj.id ? null : obj.id)}
                             style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid var(--primary)', color: 'var(--primary)', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', fontSize: '0.75rem' }}
@@ -234,19 +316,56 @@ const Planning: React.FC = () => {
                 <div style={{ paddingLeft: '8px', borderLeft: '2px solid rgba(255,255,255,0.1)', marginBottom: 'var(--space-sm)' }}>
                     {obj.key_results?.map(kr => (
                         <div key={kr.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', fontSize: '0.85rem' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                                <TrendingUp size={12} color={color} />
-                                <span>{kr.description}</span>
-                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>({kr.current_value}/{kr.target_value})</span>
+                            {editingKrId === kr.id ? (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                                    <TrendingUp size={12} color={color} />
+                                    <input
+                                        autoFocus
+                                        value={editingKrDesc}
+                                        onChange={e => setEditingKrDesc(e.target.value)}
+                                        onBlur={async () => {
+                                            if (editingKrDesc.trim() && editingKrDesc !== kr.description) {
+                                                try {
+                                                    await api.updateKeyResult(kr.id, { ...kr, description: editingKrDesc });
+                                                    setNodes(prev => prev.map(n => ({
+                                                        ...n,
+                                                        objectives: n.objectives?.map(o => ({
+                                                            ...o,
+                                                            key_results: o.key_results?.map(k => k.id === kr.id ? { ...k, description: editingKrDesc } : k)
+                                                        }))
+                                                    })));
+                                                } catch (err) { console.error(err); }
+                                            }
+                                            setEditingKrId(null);
+                                        }}
+                                        onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                                        style={{ flex: 1, padding: '2px 6px', background: 'var(--bg-app)', border: '1px solid var(--primary)', color: 'white', fontSize: '0.85rem', borderRadius: '4px' }}
+                                    />
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+                                    <TrendingUp size={12} color={color} />
+                                    <span>{kr.description}</span>
+                                </div>
+                            )}
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                                <button
+                                    onClick={() => { setEditingKrId(kr.id); setEditingKrDesc(kr.description); }}
+                                    style={{ background: 'none', border: 'none', color: 'rgba(139, 92, 246, 0.4)', cursor: 'pointer', padding: '2px' }}
+                                    onMouseOver={e => e.currentTarget.style.color = '#8b5cf6'}
+                                    onMouseOut={e => e.currentTarget.style.color = 'rgba(139, 92, 246, 0.4)'}
+                                >
+                                    <Pencil size={12} />
+                                </button>
+                                <button
+                                    onClick={(e) => handleDeleteKR(kr.id, obj.id, e)}
+                                    style={{ background: 'none', border: 'none', color: 'rgba(239, 68, 68, 0.4)', cursor: 'pointer', padding: '2px' }}
+                                    onMouseOver={e => e.currentTarget.style.color = '#ef4444'}
+                                    onMouseOut={e => e.currentTarget.style.color = 'rgba(239, 68, 68, 0.4)'}
+                                >
+                                    <Trash size={12} />
+                                </button>
                             </div>
-                            <button
-                                onClick={() => handleDeleteKR(kr.id)}
-                                style={{ background: 'none', border: 'none', color: 'rgba(239, 68, 68, 0.4)', cursor: 'pointer', padding: '2px' }}
-                                onMouseOver={e => e.currentTarget.style.color = '#ef4444'}
-                                onMouseOut={e => e.currentTarget.style.color = 'rgba(239, 68, 68, 0.4)'}
-                            >
-                                <Trash size={12} />
-                            </button>
                         </div>
                     ))}
 
@@ -257,112 +376,28 @@ const Planning: React.FC = () => {
                     )}
 
                     {showAddKR === obj.id && (
-                        <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
-                            <input
-                                placeholder="Nuevo KR"
-                                value={newKR.description}
-                                onChange={e => setNewKR({ ...newKR, description: e.target.value })}
-                                style={{ flex: 1, padding: '4px 8px', background: 'var(--bg-app)', border: '1px solid var(--border-color)', color: 'white', fontSize: '0.8rem', borderRadius: '4px' }}
-                            />
-                            <input
-                                type="number"
-                                placeholder="100"
-                                value={newKR.target_value}
-                                onChange={e => setNewKR({ ...newKR, target_value: Number(e.target.value) })}
-                                style={{ width: '60px', padding: '4px 8px', background: 'var(--bg-app)', border: '1px solid var(--border-color)', color: 'white', fontSize: '0.8rem', borderRadius: '4px' }}
-                            />
-                            <button
-                                onClick={() => handleAddKR(obj.id)}
-                                style={{ padding: '4px 12px', background: 'var(--primary)', border: 'none', color: 'white', cursor: 'pointer', fontSize: '0.8rem', borderRadius: '4px' }}
-                            >
-                                OK
-                            </button>
+                        <div style={{ marginTop: '8px' }}>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <input
+                                    placeholder="Nuevo KR"
+                                    value={newKR.description}
+                                    onChange={e => { setNewKR({ ...newKR, description: e.target.value }); setKrError(null); }}
+                                    style={{ flex: 1, padding: '4px 8px', background: 'var(--bg-app)', border: krError ? '1px solid #ef4444' : '1px solid var(--border-color)', color: 'white', fontSize: '0.8rem', borderRadius: '4px' }}
+                                />
+                                <button
+                                    onClick={() => handleAddKR(obj.id)}
+                                    style={{ padding: '4px 12px', background: 'var(--primary)', border: 'none', color: 'white', cursor: 'pointer', fontSize: '0.8rem', borderRadius: '4px' }}
+                                >
+                                    OK
+                                </button>
+                            </div>
+                            {krError && (
+                                <div style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '4px' }}>
+                                    ⚠️ {krError}
+                                </div>
+                            )}
                         </div>
                     )}
-                </div>
-
-                {/* Tasks Section */}
-                <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: 'var(--space-sm)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>TAREAS ({obj.tasks?.length || 0})</span>
-                        <button
-                            onClick={() => setNewTaskObjId(newTaskObjId === obj.id ? null : obj.id)}
-                            style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem' }}
-                        >
-                            <Plus size={14} /> Nueva
-                        </button>
-                    </div>
-
-                    {newTaskObjId === obj.id && (
-                        <div style={{ padding: '10px', background: 'rgba(0,0,0,0.3)', borderRadius: '4px', marginBottom: '10px' }}>
-                            <form onSubmit={handleCreateTask}>
-                                <input
-                                    placeholder="Título de Tarea"
-                                    value={newTask.title}
-                                    onChange={e => setNewTask({ ...newTask, title: e.target.value })}
-                                    style={{ width: '100%', marginBottom: '8px', padding: '8px', background: 'var(--bg-app)', border: '1px solid var(--text-muted)', color: 'white' }}
-                                    autoFocus
-                                />
-                                <input
-                                    placeholder="Descripción"
-                                    value={newTask.description}
-                                    onChange={e => setNewTask({ ...newTask, description: e.target.value })}
-                                    style={{ width: '100%', marginBottom: '8px', padding: '8px', background: 'var(--bg-app)', border: '1px solid var(--text-muted)', color: 'white' }}
-                                />
-
-                                <div style={{ marginBottom: '8px' }}>
-                                    <label style={{ display: 'block', fontSize: '0.8rem', marginBottom: '4px', color: 'var(--text-secondary)' }}>Proyecto:</label>
-                                    <select
-                                        value={newTask.project_id}
-                                        onChange={e => setNewTask({ ...newTask, project_id: e.target.value })}
-                                        style={{ width: '100%', padding: '8px', background: 'var(--bg-app)', border: '1px solid var(--border-color)', color: 'white' }}
-                                    >
-                                        <option value="">Sin Proyecto</option>
-                                        {newTaskProjects.map(p => (
-                                            <option key={p.id} value={p.id}>{p.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div style={{ display: 'flex', gap: '8px' }}>
-                                    <input
-                                        placeholder="Semana #"
-                                        type="number"
-                                        value={newTask.week_number}
-                                        onChange={e => setNewTask({ ...newTask, week_number: parseInt(e.target.value) })}
-                                        style={{ width: '80px', padding: '8px', background: 'var(--bg-app)', border: '1px solid var(--text-muted)', color: 'white' }}
-                                    />
-                                    <input
-                                        placeholder="Peso (1-5)"
-                                        type="number"
-                                        max={5} min={1}
-                                        value={newTask.weight}
-                                        onChange={e => setNewTask({ ...newTask, weight: parseInt(e.target.value) })}
-                                        style={{ width: '80px', padding: '8px', background: 'var(--bg-app)', border: '1px solid var(--text-muted)', color: 'white' }}
-                                    />
-                                    <button type="submit" style={{ flex: 1, background: 'var(--success)', color: 'white', border: 'none', cursor: 'pointer' }}>Guardar</button>
-                                    <button type="button" onClick={() => setNewTaskObjId(null)} style={{ background: 'gray', color: 'white', border: 'none', padding: '0 10px', cursor: 'pointer' }}>✕</button>
-                                </div>
-                            </form>
-                        </div>
-                    )}
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        {obj.tasks?.slice(0, 3).map(task => (
-                            <div key={task.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 8px', borderRadius: '4px', background: 'rgba(255,255,255,0.02)' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                                    <CheckSquare size={12} color={task.status === 'Done' ? 'var(--success)' : 'var(--text-muted)'} />
-                                    <span style={{ fontSize: '0.8rem', textDecoration: task.status === 'Done' ? 'line-through' : 'none', color: task.status === 'Done' ? 'var(--text-muted)' : 'white' }}>{task.title}</span>
-                                </div>
-                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>S{task.week_number}</span>
-                            </div>
-                        ))}
-                        {(obj.tasks?.length || 0) > 3 && (
-                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', padding: '4px 8px' }}>
-                                +{(obj.tasks?.length || 0) - 3} más...
-                            </div>
-                        )}
-                    </div>
                 </div>
             </div>
         );
@@ -375,24 +410,6 @@ const Planning: React.FC = () => {
                     <h1>Planificación Estratégica</h1>
                     <p className="text-muted">Gestiona objetivos, resultados clave y proyectos por nodo.</p>
                 </div>
-                <button
-                    onClick={() => setShowProjectsModal(true)}
-                    style={{
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid var(--border-color)',
-                        color: 'white',
-                        padding: '10px 20px',
-                        borderRadius: 'var(--radius-md)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        fontWeight: 600,
-                        transition: 'all 0.2s ease'
-                    }}
-                >
-                    📂 Gestionar Proyectos
-                </button>
             </div>
 
             {loading ? <p>Cargando...</p> : (
@@ -409,12 +426,13 @@ const Planning: React.FC = () => {
                                         style={{
                                             padding: '10px 20px',
                                             borderRadius: 'var(--radius-md)',
-                                            border: selectedNodeId === node.id ? `2px solid ${node.color}` : '1px solid var(--border-color)',
-                                            background: selectedNodeId === node.id ? `${node.color}22` : 'transparent',
-                                            color: selectedNodeId === node.id ? node.color : 'var(--text-secondary)',
+                                            border: selectedNodeId === node.id ? `2px solid ${node.color}` : `1px solid ${node.color}`,
+                                            background: selectedNodeId === node.id ? `${node.color}33` : `${node.color}15`,
+                                            color: selectedNodeId === node.id ? 'white' : node.color,
                                             cursor: 'pointer',
-                                            fontWeight: selectedNodeId === node.id ? 600 : 400,
-                                            transition: 'all 0.2s ease'
+                                            fontWeight: selectedNodeId === node.id ? 700 : 500,
+                                            transition: 'all 0.2s ease',
+                                            boxShadow: selectedNodeId === node.id ? `0 0 15px ${node.color}40` : 'none'
                                         }}
                                     >
                                         {node.name}
@@ -458,160 +476,7 @@ const Planning: React.FC = () => {
                 </>
             )}
 
-            {/* Project Management Modal (same as before) */}
-            {showProjectsModal && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: 'rgba(0,0,0,0.85)',
-                    backdropFilter: 'blur(10px)',
-                    zIndex: 2000,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: 'var(--space-md)'
-                }}>
-                    <div className="glass-panel" style={{ width: '100%', maxWidth: '800px', maxHeight: '90vh', overflow: 'auto', padding: 'var(--space-xl)', position: 'relative' }}>
-                        <button
-                            onClick={() => { setShowProjectsModal(false); setEditingProject(null); }}
-                            style={{ position: 'absolute', top: '20px', right: '20px', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
-                        >
-                            ✕ Cerrar
-                        </button>
 
-                        <h2 style={{ marginTop: 0 }}>📂 Gestión de Proyectos Globales</h2>
-
-                        {/* New/Edit Project Form */}
-                        <div style={{ background: 'rgba(255,255,255,0.03)', padding: 'var(--space-md)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-xl)', border: '1px solid var(--border-color)' }}>
-                            <h3 style={{ marginTop: 0 }}>{editingProject ? 'Editar Proyecto' : 'Crear Nuevo Proyecto'}</h3>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-                                <input
-                                    placeholder="Nombre del Proyecto"
-                                    value={newProjectData.name}
-                                    onChange={e => setNewProjectData({ ...newProjectData, name: e.target.value })}
-                                    style={{ padding: '12px', background: 'var(--bg-app)', border: '1px solid var(--border-color)', color: 'white', borderRadius: 'var(--radius-sm)' }}
-                                />
-                                <textarea
-                                    placeholder="Descripción"
-                                    value={newProjectData.description}
-                                    onChange={e => setNewProjectData({ ...newProjectData, description: e.target.value })}
-                                    style={{ padding: '12px', background: 'var(--bg-app)', border: '1px solid var(--border-color)', color: 'white', borderRadius: 'var(--radius-sm)', minHeight: '80px' }}
-                                />
-
-                                <div>
-                                    <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Vincular a Objetivos (Mínimo 1):</label>
-                                    <div style={{ maxHeight: '200px', overflow: 'auto', padding: '10px', background: 'var(--bg-app)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
-                                        {nodes.length === 0 || nodes.every(n => !n.objectives || n.objectives.length === 0) ? (
-                                            <div style={{ textAlign: 'center', padding: 'var(--space-md)', color: 'var(--warning)', fontSize: '0.9rem' }}>
-                                                ⚠️ No hay objetivos estratégicos creados. Crea al menos uno antes de gestionar proyectos.
-                                            </div>
-                                        ) : (
-                                            nodes.map(node => (
-                                                <div key={node.id} style={{ marginBottom: '10px' }}>
-                                                    <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: node.color, marginBottom: '4px' }}>{node.name}</div>
-                                                    {node.objectives?.map(obj => (
-                                                        <label key={obj.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0', cursor: 'pointer', fontSize: '0.9rem' }}>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={newProjectData.objective_ids.includes(obj.id)}
-                                                                onChange={e => {
-                                                                    const ids = e.target.checked
-                                                                        ? [...newProjectData.objective_ids, obj.id]
-                                                                        : newProjectData.objective_ids.filter(id => id !== obj.id);
-                                                                    setNewProjectData({ ...newProjectData, objective_ids: ids });
-                                                                }}
-                                                            />
-                                                            {obj.type === 'annual' ? '🎯 ' : ''}{obj.description} {obj.quarter && `(${obj.quarter})`}
-                                                        </label>
-                                                    ))}
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div style={{ display: 'flex', gap: 'var(--space-md)' }}>
-                                    <button
-                                        onClick={async () => {
-                                            if (!newProjectData.name || newProjectData.objective_ids.length === 0) {
-                                                alert('El nombre y al menos un objetivo son obligatorios.');
-                                                return;
-                                            }
-                                            try {
-                                                if (editingProject) {
-                                                    await api.updateProject(editingProject.id, newProjectData);
-                                                } else {
-                                                    await api.createProject(newProjectData);
-                                                }
-                                                setNewProjectData({ name: '', description: '', objective_ids: [] });
-                                                setEditingProject(null);
-                                                loadData();
-                                            } catch (err) {
-                                                console.error(err);
-                                            }
-                                        }}
-                                        style={{ flex: 1, background: 'var(--success)', color: 'white', border: 'none', padding: '12px', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontWeight: 600 }}
-                                    >
-                                        {editingProject ? 'Actualizar' : 'Crear Proyecto'}
-                                    </button>
-                                    {editingProject && (
-                                        <button
-                                            onClick={() => { setEditingProject(null); setNewProjectData({ name: '', description: '', objective_ids: [] }); }}
-                                            style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-secondary)', padding: '12px 20px', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
-                                        >
-                                            Cancelar
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Existing Projects List */}
-                        <div>
-                            <h3 style={{ marginBottom: 'var(--space-md)' }}>Proyectos Existentes</h3>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-                                {allProjects.map(p => (
-                                    <div key={p.id} style={{ padding: 'var(--space-md)', background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <div>
-                                            <div style={{ fontWeight: 600 }}>{p.name}</div>
-                                            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{(p as any).objective_ids?.length || 0} objetivos vinculados</div>
-                                        </div>
-                                        <div style={{ display: 'flex', gap: '12px' }}>
-                                            <button
-                                                onClick={() => {
-                                                    setEditingProject(p);
-                                                    setNewProjectData({
-                                                        name: p.name,
-                                                        description: (p as any).description || '',
-                                                        objective_ids: (p as any).objective_ids || []
-                                                    });
-                                                }}
-                                                style={{ background: 'transparent', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.85rem' }}
-                                            >
-                                                Editar
-                                            </button>
-                                            <button
-                                                onClick={async () => {
-                                                    if (window.confirm('¿Eliminar proyecto?')) {
-                                                        await api.deleteProject(p.id);
-                                                        loadData();
-                                                    }
-                                                }}
-                                                style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.85rem' }}
-                                            >
-                                                Eliminar
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

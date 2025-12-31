@@ -97,13 +97,32 @@ export const api = {
         if (!res.ok) throw new Error('Failed to fetch tasks');
         return res.json();
     },
-    createTask: async (data: any) => {
+    getAllTasks: async () => {
+        const res = await fetch(`${API_URL}/tasks`);
+        if (!res.ok) throw new Error('Failed to fetch all tasks');
+        return res.json();
+    },
+    getTasksByProject: async (projectId: string) => {
+        const res = await fetch(`${API_URL}/tasks/project/${projectId}`);
+        if (!res.ok) throw new Error('Failed to fetch tasks by project');
+        return res.json();
+    },
+    createTask: async (taskData: any) => {
         const res = await fetch(`${API_URL}/tasks`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
+            body: JSON.stringify(taskData),
         });
         if (!res.ok) throw new Error('Failed to create task');
+        return res.json();
+    },
+    updateTask: async (id: string, taskData: any) => {
+        const res = await fetch(`${API_URL}/tasks/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(taskData),
+        });
+        if (!res.ok) throw new Error('Failed to update task');
         return res.json();
     },
     updateTaskStatus: async (id: string, status: string, evidence?: string | File) => {
@@ -132,6 +151,11 @@ export const api = {
             body: JSON.stringify({ new_priority_score, reason }),
         });
         if (!res.ok) throw new Error('Failed to update task priority');
+        return res.json();
+    },
+    deleteTask: async (id: string) => {
+        const res = await fetch(`${API_URL}/tasks/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete task');
         return res.json();
     },
 

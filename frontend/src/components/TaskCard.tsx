@@ -6,7 +6,7 @@ interface Task {
     id: string;
     title: string;
     description: string;
-    status: 'Todo' | 'Doing' | 'Waiting' | 'Done';
+    status: 'Backlog' | 'Todo' | 'Doing' | 'Waiting' | 'Done' | string;
     weight: number;
     priority_score: number;
     evidence_url?: string;
@@ -14,15 +14,17 @@ interface Task {
     impacted_node_count?: number;
     impacted_nodes?: string[]; // Array of Node IDs
     project_name?: string;
+    week_number?: number;
 }
 
 interface TaskCardProps {
     task: Task;
     onUpdate: () => void;
+    onEdit?: (task: Task) => void;
     nodeColors?: Record<string, string>; // Map ID -> Color
 }
 
-export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, nodeColors }) => {
+export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onEdit, nodeColors }) => {
     const [loading, setLoading] = useState(false);
     const [evidenceUrl, setEvidenceUrl] = useState(task.evidence_url || '');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -58,6 +60,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, nodeColors }
             case 'Done': return 'var(--state-success)';
             case 'Doing': return 'var(--state-warning)';
             case 'Waiting': return 'var(--state-neutral)';
+            case 'Backlog': return 'var(--text-muted)';
             default: return 'var(--text-secondary)';
         }
     };
@@ -98,10 +101,20 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, nodeColors }
                     <h3 style={{ margin: '0 0 4px 0', fontSize: '1.1rem' }}>{task.title}</h3>
                     <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{task.description}</p>
                 </div>
-                <div style={{ textAlign: 'right' }}>
+                <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
                     <div style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-light)' }}>
                         {Number(task.priority_score || 0).toFixed(1)}
                     </div>
+                    {onEdit && (
+                        <button
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(task); }}
+                            className="btn-icon"
+                            style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '4px', padding: '4px', cursor: 'pointer', color: 'var(--primary-light)' }}
+                            title="Editar Atributos"
+                        >
+                            ✏️
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -120,6 +133,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, nodeColors }
                         fontSize: '0.9rem'
                     }}
                 >
+                    <option value="Backlog">Backlog</option>
                     <option value="Todo">Pendiente</option>
                     <option value="Doing">En Progreso</option>
                     <option value="Waiting">Esperando</option>

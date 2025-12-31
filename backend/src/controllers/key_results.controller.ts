@@ -15,6 +15,16 @@ export const getKeyResultsByObjective = async (req: Request, res: Response) => {
 export const createKeyResult = async (req: Request, res: Response) => {
     const { objective_id, description, target_value, current_value } = req.body;
     try {
+        // Check for duplicate description within the same objective
+        const duplicateCheck = await db.query(
+            'SELECT id FROM key_results WHERE objective_id = $1 AND LOWER(TRIM(description)) = LOWER(TRIM($2))',
+            [objective_id, description]
+        );
+
+        if (duplicateCheck.rows.length > 0) {
+            return res.status(400).json({ error: 'Ya existe un resultado clave con ese nombre en este objetivo' });
+        }
+
         const result = await db.query(
             'INSERT INTO key_results (objective_id, description, target_value, current_value) VALUES ($1, $2, $3, $4) RETURNING *',
             [objective_id, description, target_value || 100, current_value || 0]

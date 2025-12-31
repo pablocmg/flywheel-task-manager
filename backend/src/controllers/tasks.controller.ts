@@ -22,6 +22,25 @@ export const getTasksByObjective = async (req: Request, res: Response) => {
     }
 };
 
+export const getAllTasks = async (req: Request, res: Response) => {
+    try {
+        const query = `
+            SELECT t.*, o.description as objective_title, p.name as project_name,
+            (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count,
+            (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes
+            FROM tasks t
+            JOIN objectives o ON t.objective_id = o.id
+            LEFT JOIN projects p ON t.project_id = p.id
+            ORDER BY t.priority_score DESC
+        `;
+        const result = await db.query(query);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching all tasks:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
 export const getTasksByWeek = async (req: Request, res: Response) => {
     const { weekNumber } = req.params;
     try {
@@ -43,8 +62,28 @@ export const getTasksByWeek = async (req: Request, res: Response) => {
     }
 };
 
+export const getTasksByProject = async (req: Request, res: Response) => {
+    const { projectId } = req.params;
+    try {
+        const query = `
+            SELECT t.*, o.description as objective_title, p.name as project_name,
+            (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count
+            FROM tasks t
+            JOIN objectives o ON t.objective_id = o.id
+            LEFT JOIN projects p ON t.project_id = p.id
+            WHERE t.project_id = $1 
+            ORDER BY t.created_at DESC
+        `;
+        const result = await db.query(query, [projectId]);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching tasks by project:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
 export const createTask = async (req: Request, res: Response) => {
-    const { objective_id, project_id, title, description, assignee_id, week_number, weight, due_date, impacted_node_ids } = req.body;
+    const { objective_id, project_id, title, description, assignee_id, week_number, weight, target_date, impacted_node_ids } = req.body;
 
     // Calculate Priority Score
     // Algo: PriorityScore = RemainingDays * (ObjectiveWeight * TaskImportance) + (Count(NodesImpacted) * 2)
@@ -52,8 +91,8 @@ export const createTask = async (req: Request, res: Response) => {
     // Remaining days = due_date - now (in days). If no due_date, assume 7 days.
 
     let remainingDays = 7;
-    if (due_date) {
-        const diffTime = new Date(due_date).getTime() - new Date().getTime();
+    if (target_date) {
+        const diffTime = new Date(target_date).getTime() - new Date().getTime();
         remainingDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         if (remainingDays < 0) remainingDays = 0; // Overdue tasks still have priority, but let's clamp positive for multiplier logic or handle differently.
     }
@@ -75,8 +114,8 @@ export const createTask = async (req: Request, res: Response) => {
         await db.query('BEGIN');
 
         const result = await db.query(
-            'INSERT INTO tasks (objective_id, project_id, title, description, assignee_id, week_number, weight, due_date, priority_score) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
-            [objective_id, project_id || null, title, description, assignee_id, week_number, taskWeight, due_date, priority_score]
+            'INSERT INTO tasks (objective_id, project_id, title, description, assignee_id, week_number, weight, target_date, priority_score) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
+            [objective_id, project_id || null, title, description, assignee_id, week_number, taskWeight, target_date || null, priority_score]
         );
         const task = result.rows[0];
 
@@ -94,8 +133,13 @@ export const createTask = async (req: Request, res: Response) => {
         res.status(201).json(task);
     } catch (error) {
         await db.query('ROLLBACK');
-        console.error('Error creating task:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        console.error('Error creating task (Detailed):', {
+            error,
+            message: (error as Error).message,
+            stack: (error as Error).stack,
+            body: req.body
+        });
+        res.status(500).json({ error: 'Internal Server Error', details: (error as Error).message });
     }
 };
 
@@ -111,9 +155,9 @@ export const updateTaskStatus = async (req: Request, res: Response) => {
     }
 
     // User Story 3.1: Block closure if no evidence
-    if (status === 'Done' && !evidence_url) {
-        return res.status(400).json({ error: 'Evidence (URL or File) is required to mark task as Done' });
-    }
+    // if (status === 'Done' && !evidence_url) {
+    //    return res.status(400).json({ error: 'Evidence (URL or File) is required to mark task as Done' });
+    // }
 
     try {
         const result = await db.query(
@@ -156,6 +200,41 @@ export const updateTaskPriority = async (req: Request, res: Response) => {
     } catch (error) {
         await db.query('ROLLBACK');
         console.error('Error reprioritizing task:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
+export const updateTask = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { title, description, objective_id, target_date } = req.body;
+
+    try {
+        const result = await db.query(
+            'UPDATE tasks SET title = $1, description = $2, objective_id = $3, target_date = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5 RETURNING *',
+            [title, description, objective_id, target_date || null, id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Task not found' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error updating task:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
+export const deleteTask = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    try {
+        const result = await db.query('DELETE FROM tasks WHERE id = $1 RETURNING *', [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Task not found' });
+        }
+        res.json({ message: 'Task deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting task:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 };

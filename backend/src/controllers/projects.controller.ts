@@ -36,13 +36,13 @@ export const getProjectsByObjective = async (req: Request, res: Response) => {
 };
 
 export const createProject = async (req: Request, res: Response) => {
-    const { name, description, status, objective_ids } = req.body;
+    const { name, description, status, objective_ids, target_date } = req.body;
     try {
         await db.query('BEGIN');
 
         const result = await db.query(
-            'INSERT INTO projects (name, description, status) VALUES ($1, $2, $3) RETURNING *',
-            [name, description, status || 'Active']
+            'INSERT INTO projects (name, description, status, target_date) VALUES ($1, $2, $3, $4) RETURNING *',
+            [name, description, status || 'Active', target_date || null]
         );
         const project = result.rows[0];
 
@@ -66,13 +66,13 @@ export const createProject = async (req: Request, res: Response) => {
 
 export const updateProject = async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { name, description, status, objective_ids } = req.body;
+    const { name, description, status, objective_ids, target_date } = req.body;
     try {
         await db.query('BEGIN');
 
         const result = await db.query(
-            'UPDATE projects SET name = $1, description = $2, status = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4 RETURNING *',
-            [name, description, status, id]
+            'UPDATE projects SET name = $1, description = $2, status = $3, target_date = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5 RETURNING *',
+            [name, description, status, target_date || null, id]
         );
 
         if (result.rows.length === 0) {
