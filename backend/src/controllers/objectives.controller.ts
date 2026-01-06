@@ -67,11 +67,21 @@ export const getObjectivesByNode = async (req: Request, res: Response) => {
 };
 
 export const createObjective = async (req: Request, res: Response) => {
-    const { node_id, description, type, quarter, year } = req.body;
+    const { group_id, description, node_id } = req.body;
     try {
+        let finalNodeId = node_id;
+
+        // If group_id is provided but node_id is not, get node_id from the group
+        if (group_id && !node_id) {
+            const groupResult = await db.query('SELECT node_id FROM objective_groups WHERE id = $1', [group_id]);
+            if (groupResult.rows.length > 0) {
+                finalNodeId = groupResult.rows[0].node_id;
+            }
+        }
+
         const result = await db.query(
-            'INSERT INTO objectives (node_id, description, type, quarter, year) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-            [node_id, description, type || 'quarterly', quarter, year]
+            'INSERT INTO objectives (group_id, node_id, description) VALUES ($1, $2, $3) RETURNING *',
+            [group_id || null, finalNodeId, description]
         );
         res.status(201).json(result.rows[0]);
     } catch (error) {

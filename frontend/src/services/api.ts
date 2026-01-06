@@ -61,6 +61,59 @@ export const api = {
         return res.json();
     },
 
+    // Objective Groups
+    getObjectiveGroups: async (nodeId: string) => {
+        const res = await fetch(`${API_URL}/objective-groups/node/${nodeId}`);
+        if (!res.ok) throw new Error('Failed to fetch objective groups');
+        return res.json();
+    },
+    createObjectiveGroup: async (data: any) => {
+        const res = await fetch(`${API_URL}/objective-groups`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error('Failed to create objective group');
+        return res.json();
+    },
+    updateObjectiveGroup: async (id: string, data: any) => {
+        const res = await fetch(`${API_URL}/objective-groups/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error('Failed to update objective group');
+        return res.json();
+    },
+    deleteObjectiveGroup: async (id: string) => {
+        const res = await fetch(`${API_URL}/objective-groups/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete objective group');
+        return res.json();
+    },
+    replicateObjectiveGroup: async (id: string) => {
+        const res = await fetch(`${API_URL}/objective-groups/${id}/replicate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+        });
+        if (!res.ok) throw new Error('Failed to replicate objective group');
+        return res.json();
+    },
+    deleteAllObjectiveGroupsByNode: async (nodeId: string) => {
+        const res = await fetch(`${API_URL}/objective-groups/node/${nodeId}/all`, {
+            method: 'DELETE',
+        });
+        if (!res.ok) throw new Error('Failed to delete all objective groups');
+        return res.json();
+    },
+    replicateAllObjectiveGroupsFromNode: async (nodeId: string) => {
+        const res = await fetch(`${API_URL}/objective-groups/node/${nodeId}/replicate-all`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+        });
+        if (!res.ok) throw new Error('Failed to replicate all objective groups');
+        return res.json();
+    },
+
     // Key Results
     createKeyResult: async (data: any) => {
         const res = await fetch(`${API_URL}/key-results`, {

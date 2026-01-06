@@ -25,11 +25,17 @@ export const getTasksByObjective = async (req: Request, res: Response) => {
 export const getAllTasks = async (req: Request, res: Response) => {
     try {
         const query = `
-            SELECT t.*, o.description as objective_title, p.name as project_name,
-            (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count,
-            (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes
+            SELECT t.*, 
+                   o.description as objective_title,
+                   o.node_id,
+                   n.name as node_name,
+                   n.color as node_color,
+                   p.name as project_name,
+                   (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count,
+                   (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes
             FROM tasks t
             JOIN objectives o ON t.objective_id = o.id
+            JOIN nodes n ON o.node_id = n.id
             LEFT JOIN projects p ON t.project_id = p.id
             ORDER BY t.priority_score DESC
         `;

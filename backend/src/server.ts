@@ -8,6 +8,7 @@ import { Server } from 'socket.io';
 // Import Routes
 import nodesRoutes from './routes/nodes.routes';
 import objectivesRoutes from './routes/objectives.routes';
+import objectiveGroupsRoutes from './routes/objectiveGroups.routes';
 import tasksRoutes from './routes/tasks.routes';
 import interactionsRoutes from './routes/interactions.routes';
 import projectsRoutes from './routes/projects.routes';
@@ -31,6 +32,7 @@ app.use(express.json());
 // Mount Routes
 app.use('/api/nodes', nodesRoutes);
 app.use('/api/objectives', objectivesRoutes);
+app.use('/api/objective-groups', objectiveGroupsRoutes);
 app.use('/api/tasks', tasksRoutes);
 app.use('/api/interactions', interactionsRoutes);
 app.use('/api/projects', projectsRoutes);

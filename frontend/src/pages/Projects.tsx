@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { Plus, FolderOpen, ChevronDown, ChevronRight, Trash2 } from 'lucide-react';
+import { Plus, FolderOpen, ChevronDown, ChevronRight, Trash2, AlertTriangle } from 'lucide-react';
 import ProjectFormModal from '../components/ProjectFormModal';
 
 interface Node {
@@ -46,6 +46,7 @@ const Projects: React.FC = () => {
     const [editingProject, setEditingProject] = useState<Project | null>(null);
     const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
     const [projectTasks, setProjectTasks] = useState<Record<string, Task[]>>({});
+    const [confirmDelete, setConfirmDelete] = useState<Project | null>(null);
 
     // Task creation/editing
     const [creatingTaskForProject, setCreatingTaskForProject] = useState<string | null>(null);
@@ -140,14 +141,16 @@ const Projects: React.FC = () => {
         }
     };
 
-    const handleDeleteProject = async (projectId: string) => {
-        if (window.confirm('¿Eliminar este proyecto?')) {
-            try {
-                await api.deleteProject(projectId);
-                loadData();
-            } catch (err) {
-                console.error('Error deleting project:', err);
-            }
+    const handleDeleteProject = async () => {
+        if (!confirmDelete) return;
+
+        try {
+            await api.deleteProject(confirmDelete.id);
+            setConfirmDelete(null);
+            loadData();
+        } catch (err) {
+            console.error('Error deleting project:', err);
+            alert('Error al eliminar el proyecto');
         }
     };
 
@@ -299,7 +302,7 @@ const Projects: React.FC = () => {
                                             Editar
                                         </button>
                                         <button
-                                            onClick={() => handleDeleteProject(project.id)}
+                                            onClick={() => setConfirmDelete(project)}
                                             style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.85rem' }}
                                         >
                                             Eliminar
@@ -462,6 +465,56 @@ const Projects: React.FC = () => {
                 nodes={nodes}
                 onSave={handleSaveProject}
             />
+
+            {/* Delete Confirmation Modal */}
+            {confirmDelete && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                    background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1001
+                }}>
+                    <div className="glass-panel" style={{ padding: 'var(--space-lg)', width: '450px', textAlign: 'center' }}>
+                        <div style={{ marginBottom: 'var(--space-md)' }}>
+                            <AlertTriangle size={48} color="#ef4444" />
+                        </div>
+                        <h3 style={{ margin: '0 0 var(--space-sm) 0', color: '#ef4444' }}>⚠️ ADVERTENCIA</h3>
+                        <p className="text-muted" style={{ marginBottom: 'var(--space-md)' }}>
+                            ¿Estás seguro de que quieres <strong>ELIMINAR</strong> el proyecto <strong>"{confirmDelete.name}"</strong>?
+                        </p>
+                        <p style={{ marginBottom: 'var(--space-md)', color: '#f87171', fontSize: '0.9rem' }}>
+                            Esta acción es <strong>PERMANENTE</strong> y eliminará el proyecto y <strong>todas sus tareas asociadas</strong>.
+                        </p>
+                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                            <button
+                                onClick={() => setConfirmDelete(null)}
+                                style={{
+                                    padding: '10px 24px',
+                                    background: 'transparent',
+                                    border: '1px solid var(--text-muted)',
+                                    color: 'white',
+                                    cursor: 'pointer',
+                                    borderRadius: 'var(--radius-md)'
+                                }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleDeleteProject}
+                                style={{
+                                    padding: '10px 24px',
+                                    background: '#ef4444',
+                                    border: 'none',
+                                    color: 'white',
+                                    cursor: 'pointer',
+                                    borderRadius: 'var(--radius-md)',
+                                    fontWeight: 'bold'
+                                }}
+                            >
+                                ELIMINAR PROYECTO
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -22,6 +22,8 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+type SwimlaneMode = 'none' | 'nodes' | 'projects';
+
 interface Task {
     id: string;
     title: string;
@@ -34,8 +36,19 @@ interface Task {
     objective_title?: string;
     impacted_node_count?: number;
     impacted_nodes?: string[];
+    project_id?: string;
     project_name?: string;
     target_date?: string;
+    node_id?: string;
+    node_name?: string;
+    node_color?: string;
+}
+
+interface SwimlaneData {
+    id: string;
+    name: string;
+    color?: string;
+    columns: Record<string, Task[]>;
 }
 
 const COLUMNS = [
@@ -47,7 +60,18 @@ const COLUMNS = [
 ];
 
 // Sortable Item Component
-function SortableTaskItem({ task, nodeColors, onEdit }: { task: Task; nodeColors: Record<string, string>; onEdit: (t: Task) => void }) {
+function SortableTaskItem({
+    task,
+    nodeColors,
+    onEdit,
+    swimlaneId
+}: {
+    task: Task;
+    nodeColors: Record<string, string>;
+    onEdit: (t: Task) => void;
+    swimlaneId?: string;
+}) {
+    const itemId = swimlaneId ? `${swimlaneId}-${task.id}` : task.id;
     const {
         attributes,
         listeners,
@@ -55,7 +79,7 @@ function SortableTaskItem({ task, nodeColors, onEdit }: { task: Task; nodeColors
         transform,
         transition,
         isDragging
-    } = useSortable({ id: task.id, data: { type: 'Task', task } });
+    } = useSortable({ id: itemId, data: { type: 'Task', task, swimlaneId } });
 
     const style = {
         transform: CSS.Translate.toString(transform),
@@ -70,7 +94,96 @@ function SortableTaskItem({ task, nodeColors, onEdit }: { task: Task; nodeColors
     );
 }
 
-// Column Component
+// Swimlane Row Component
+function SwimlaneRow({
+    swimlane,
+    nodeColors,
+    onEdit,
+    mode
+}: {
+    swimlane: SwimlaneData;
+    nodeColors: Record<string, string>;
+    onEdit: (t: Task) => void;
+    mode: 'nodes' | 'projects';
+}) {
+    return (
+        <div style={{
+            display: 'flex',
+            borderBottom: '1px solid var(--glass-border)',
+            minHeight: '200px'
+        }}>
+            {/* Swimlane Header */}
+            <div style={{
+                width: '200px',
+                minWidth: '200px',
+                padding: 'var(--space-md)',
+                background: 'var(--glass-bg)',
+                borderRight: '1px solid var(--glass-border)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-sm)',
+                position: 'sticky',
+                left: 0,
+                zIndex: 10
+            }}>
+                {mode === 'nodes' && swimlane.color && (
+                    <div style={{
+                        width: '12px',
+                        height: '12px',
+                        borderRadius: '50%',
+                        background: swimlane.color,
+                        flexShrink: 0
+                    }} />
+                )}
+                <span style={{
+                    fontWeight: 'bold',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.9rem'
+                }}>
+                    {swimlane.name}
+                </span>
+            </div>
+
+            {/* Columns */}
+            <div style={{
+                display: 'flex',
+                flex: 1,
+                gap: '16px',
+                padding: '8px'
+            }}>
+                {COLUMNS.map(col => (
+                    <div
+                        key={col.id}
+                        style={{
+                            flex: 1,
+                            minWidth: '250px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '8px'
+                        }}
+                    >
+                        <SortableContext
+                            items={swimlane.columns[col.id].map(t => `${swimlane.id}-${t.id}`)}
+                            strategy={verticalListSortingStrategy}
+                        >
+                            {swimlane.columns[col.id].map(task => (
+                                <SortableTaskItem
+                                    key={`${swimlane.id}-${task.id}`}
+                                    task={task}
+                                    nodeColors={nodeColors}
+                                    onEdit={onEdit}
+                                    swimlaneId={swimlane.id}
+                                />
+                            ))}
+                        </SortableContext>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// Column Component (for flat view)
 function KanbanColumn({ id, title, tasks, nodeColors, onEdit }: { id: string; title: string; tasks: Task[]; nodeColors: Record<string, string>; onEdit: (t: Task) => void }) {
     const { setNodeRef } = useSortable({ id: id, data: { type: 'Column', id } });
 
@@ -121,7 +234,8 @@ const Execution: React.FC = () => {
     const [selectedProject, setSelectedProject] = useState<string>('all');
     const [allProjects, setAllProjects] = useState<string[]>([]);
     const [activeTask, setActiveTask] = useState<Task | null>(null);
-    const [editingTask, setEditingTask] = useState<Task | null>(null); // State for Edit Modal
+    const [editingTask, setEditingTask] = useState<Task | null>(null);
+    const [swimlaneMode, setSwimlaneMode] = useState<SwimlaneMode>('none');
 
     // Reprioritization State
     const [showReprioritizeModal, setShowReprioritizeModal] = useState(false);
@@ -160,7 +274,56 @@ const Execution: React.FC = () => {
         loadNodesAndTasks();
     };
 
-    // Derived state for columns
+    // Swimlane data grouping
+    const swimlaneData = useMemo(() => {
+        if (swimlaneMode === 'none') return null;
+
+        const groupKey = swimlaneMode === 'nodes' ? 'node_id' : 'project_id';
+        const groupName = swimlaneMode === 'nodes' ? 'node_name' : 'project_name';
+        const groupColor = swimlaneMode === 'nodes' ? 'node_color' : undefined;
+
+        const grouped = new Map<string, SwimlaneData>();
+
+        // Filter tasks by selected project if applicable
+        const visibleTasks = selectedProject === 'all'
+            ? tasks
+            : tasks.filter(t => t.project_name === selectedProject);
+
+        visibleTasks.forEach(task => {
+            const groupId = task[groupKey as keyof Task] as string;
+            const name = task[groupName as keyof Task] as string;
+            const color = groupColor ? task[groupColor as keyof Task] as string : undefined;
+
+            if (!groupId || !name) return;
+
+            if (!grouped.has(groupId)) {
+                grouped.set(groupId, {
+                    id: groupId,
+                    name: name,
+                    color: color,
+                    columns: {
+                        Backlog: [],
+                        Todo: [],
+                        Doing: [],
+                        Waiting: [],
+                        Done: []
+                    }
+                });
+            }
+
+            const swimlane = grouped.get(groupId)!;
+            let statusKey = task.status;
+            if (statusKey === 'Blocked') statusKey = 'Waiting';
+
+            if (swimlane.columns[statusKey]) {
+                swimlane.columns[statusKey].push(task);
+            }
+        });
+
+        return Array.from(grouped.values());
+    }, [tasks, swimlaneMode, selectedProject]);
+
+    // Derived state for columns (flat view)
     const columns = useMemo(() => {
         const cols: Record<string, Task[]> = {
             Backlog: [],
@@ -219,10 +382,22 @@ const Execution: React.FC = () => {
 
         if (!over) return;
 
-        const activeId = active.id as string;
-        const overId = over.id as string;
+        const activeData = active.data.current;
+        const overData = over.data.current;
 
-        const activeTask = tasks.find(t => t.id === activeId);
+        // In swimlane mode, prevent cross-swimlane drops
+        if (swimlaneMode !== 'none') {
+            if (activeData?.swimlaneId && overData?.swimlaneId && activeData.swimlaneId !== overData.swimlaneId) {
+                return; // Prevent cross-swimlane drops
+            }
+        }
+
+        const activeId = typeof active.id === 'string' ? active.id : String(active.id);
+        const overId = typeof over.id === 'string' ? over.id : String(over.id);
+
+        // Extract actual task ID (remove swimlane prefix if present)
+        const actualTaskId = activeId.includes('-') ? activeId.split('-').pop()! : activeId;
+        const activeTask = tasks.find(t => t.id === actualTaskId);
         if (!activeTask) return;
 
         // 1. Determine destination column and index
@@ -231,7 +406,8 @@ const Execution: React.FC = () => {
         if (over.data.current?.type === 'Column') {
             newStatus = over.id as string;
         } else if (over.data.current?.type === 'Task') {
-            const overTask = tasks.find(t => t.id === overId);
+            const overTaskId = overId.includes('-') ? overId.split('-').pop()! : overId;
+            const overTask = tasks.find(t => t.id === overTaskId);
             if (overTask) {
                 newStatus = overTask.status;
             }
@@ -242,15 +418,15 @@ const Execution: React.FC = () => {
             // Optimistic update
             setTasks(prev => {
                 return prev.map(t => {
-                    if (t.id === activeId) return { ...t, status: newStatus };
+                    if (t.id === actualTaskId) return { ...t, status: newStatus };
                     return t;
                 });
             });
 
             try {
                 // Call API
-                await api.updateTaskStatus(activeId, newStatus);
-                console.log(`Updated status of ${activeId} to ${newStatus}`);
+                await api.updateTaskStatus(actualTaskId, newStatus);
+                console.log(`Updated status of ${actualTaskId} to ${newStatus}`);
             } catch (err) {
                 console.error("Failed to update status", err);
                 handleUpdate(); // revert
@@ -260,13 +436,17 @@ const Execution: React.FC = () => {
         // Check if Reordered (Priority Change)
         if (activeId !== overId) {
             if (activeTask.status === newStatus) {
-                const currentColumnTasks = columns[newStatus];
-                const oldIndex = currentColumnTasks.findIndex(t => t.id === activeId);
-                const targetIndex = currentColumnTasks.findIndex(t => t.id === overId);
+                const currentColumnTasks = swimlaneMode === 'none'
+                    ? columns[newStatus]
+                    : swimlaneData?.find(s => s.id === activeData?.swimlaneId)?.columns[newStatus] || [];
 
-                if (oldIndex !== targetIndex) {
+                const oldIndex = currentColumnTasks.findIndex(t => t.id === actualTaskId);
+                const targetTaskId = overId.includes('-') ? overId.split('-').pop()! : overId;
+                const targetIndex = currentColumnTasks.findIndex(t => t.id === targetTaskId);
+
+                if (oldIndex !== targetIndex && oldIndex !== -1 && targetIndex !== -1) {
                     // Trigger Reorder Modal
-                    setReorderParams({ taskId: activeId, newIndex: targetIndex, columnId: newStatus });
+                    setReorderParams({ taskId: actualTaskId, newIndex: targetIndex, columnId: newStatus });
                     setShowReprioritizeModal(true);
                 }
             }
@@ -300,6 +480,13 @@ const Execution: React.FC = () => {
         }),
     };
 
+    const cycleSwimlaneMode = () => {
+        const modes: SwimlaneMode[] = ['none', 'nodes', 'projects'];
+        const currentIndex = modes.indexOf(swimlaneMode);
+        const nextIndex = (currentIndex + 1) % modes.length;
+        setSwimlaneMode(modes[nextIndex]);
+    };
+
     return (
         <div style={{ padding: '0 20px', height: '100vh', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)', marginTop: '20px' }}>
@@ -309,14 +496,34 @@ const Execution: React.FC = () => {
                     </h1>
                     <p className="text-muted">Gestión visual de tareas. Arrastra para cambiar estado o repriorizar (requiere motivo).</p>
                 </div>
-                <div style={{ display: 'flex', gap: '20px' }}>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    {/* Swimlane Mode Toggle */}
+                    <button
+                        onClick={cycleSwimlaneMode}
+                        style={{
+                            padding: '8px 16px',
+                            background: swimlaneMode !== 'none' ? 'var(--primary)' : 'var(--glass-bg)',
+                            color: 'white',
+                            border: '1px solid var(--glass-border)',
+                            borderRadius: 'var(--radius-md)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            fontWeight: swimlaneMode !== 'none' ? 'bold' : 'normal'
+                        }}
+                    >
+                        {swimlaneMode === 'none' && '📋 Vista Plana'}
+                        {swimlaneMode === 'nodes' && '🎯 Swimlanes por Nodos'}
+                        {swimlaneMode === 'projects' && '📁 Swimlanes por Proyectos'}
+                    </button>
 
                     {allProjects.length > 0 && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
                             <select
                                 value={selectedProject}
                                 onChange={(e) => setSelectedProject(e.target.value)}
-                                style={{ padding: '8px', background: 'var(--bg-app)', color: 'white', border: '1px solid var(--glass-border)' }}
+                                style={{ padding: '8px', background: 'var(--bg-app)', color: 'white', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)' }}
                             >
                                 <option value="all">Todos los proyectos</option>
                                 {allProjects.map(p => (
@@ -335,24 +542,73 @@ const Execution: React.FC = () => {
                 onDragOver={onDragOver}
                 onDragEnd={onDragEnd}
             >
-                <div style={{
-                    display: 'flex',
-                    gap: '16px',
-                    overflowX: 'auto',
-                    paddingBottom: '20px',
-                    height: '100%'
-                }}>
-                    {COLUMNS.map(col => (
-                        <KanbanColumn
-                            key={col.id}
-                            id={col.id}
-                            title={col.title}
-                            tasks={columns[col.id as keyof typeof columns] || []}
-                            nodeColors={nodeColors}
-                            onEdit={setEditingTask}
-                        />
-                    ))}
-                </div>
+                {swimlaneMode === 'none' ? (
+                    // Flat Kanban View
+                    <div style={{
+                        display: 'flex',
+                        gap: '16px',
+                        overflowX: 'auto',
+                        paddingBottom: '20px',
+                        height: '100%'
+                    }}>
+                        {COLUMNS.map(col => (
+                            <KanbanColumn
+                                key={col.id}
+                                id={col.id}
+                                title={col.title}
+                                tasks={columns[col.id as keyof typeof columns] || []}
+                                nodeColors={nodeColors}
+                                onEdit={setEditingTask}
+                            />
+                        ))}
+                    </div>
+                ) : (
+                    // Swimlane View
+                    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+                        {/* Sticky Column Headers */}
+                        <div style={{
+                            display: 'flex',
+                            position: 'sticky',
+                            top: 0,
+                            zIndex: 20,
+                            background: 'var(--bg-app)',
+                            borderBottom: '2px solid var(--primary)',
+                            paddingBottom: '8px'
+                        }}>
+                            <div style={{ width: '200px', minWidth: '200px', padding: 'var(--space-md)' }}>
+                                <span style={{ fontWeight: 'bold', color: 'var(--primary)' }}>
+                                    {swimlaneMode === 'nodes' ? 'Nodos' : 'Proyectos'}
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', flex: 1, gap: '16px', padding: '8px' }}>
+                                {COLUMNS.map(col => (
+                                    <div key={col.id} style={{ flex: 1, minWidth: '250px', fontWeight: 'bold', color: 'var(--primary)', textAlign: 'center' }}>
+                                        {col.title}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Swimlane Rows */}
+                        <div style={{ flex: 1, overflowY: 'auto' }}>
+                            {swimlaneData && swimlaneData.length > 0 ? (
+                                swimlaneData.map(swimlane => (
+                                    <SwimlaneRow
+                                        key={swimlane.id}
+                                        swimlane={swimlane}
+                                        nodeColors={nodeColors}
+                                        onEdit={setEditingTask}
+                                        mode={swimlaneMode as 'nodes' | 'projects'}
+                                    />
+                                ))
+                            ) : (
+                                <div style={{ padding: 'var(--space-lg)', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                    No hay tareas para mostrar en esta vista
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 <DragOverlay dropAnimation={dropAnimation}>
                     {activeTask ? (
