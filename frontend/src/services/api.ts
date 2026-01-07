@@ -64,7 +64,7 @@ export const api = {
     // Objective Groups
     getObjectiveGroups: async (nodeId: string) => {
         const res = await fetch(`${API_URL}/objective-groups/node/${nodeId}`);
-        if (!res.ok) throw new Error('Failed to fetch objective groups');
+        if (!res.ok) throw new Error('Failed to fetch objective periods');
         return res.json();
     },
     createObjectiveGroup: async (data: any) => {
@@ -73,7 +73,7 @@ export const api = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
         });
-        if (!res.ok) throw new Error('Failed to create objective group');
+        if (!res.ok) throw new Error('Failed to create objective period');
         return res.json();
     },
     updateObjectiveGroup: async (id: string, data: any) => {
@@ -82,12 +82,12 @@ export const api = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
         });
-        if (!res.ok) throw new Error('Failed to update objective group');
+        if (!res.ok) throw new Error('Failed to update objective period');
         return res.json();
     },
     deleteObjectiveGroup: async (id: string) => {
         const res = await fetch(`${API_URL}/objective-groups/${id}`, { method: 'DELETE' });
-        if (!res.ok) throw new Error('Failed to delete objective group');
+        if (!res.ok) throw new Error('Failed to delete objective period');
         return res.json();
     },
     replicateObjectiveGroup: async (id: string) => {
@@ -95,14 +95,14 @@ export const api = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
         });
-        if (!res.ok) throw new Error('Failed to replicate objective group');
+        if (!res.ok) throw new Error('Failed to replicate objective period');
         return res.json();
     },
     deleteAllObjectiveGroupsByNode: async (nodeId: string) => {
         const res = await fetch(`${API_URL}/objective-groups/node/${nodeId}/all`, {
             method: 'DELETE',
         });
-        if (!res.ok) throw new Error('Failed to delete all objective groups');
+        if (!res.ok) throw new Error('Failed to delete all objective periods');
         return res.json();
     },
     replicateAllObjectiveGroupsFromNode: async (nodeId: string) => {
@@ -110,7 +110,7 @@ export const api = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
         });
-        if (!res.ok) throw new Error('Failed to replicate all objective groups');
+        if (!res.ok) throw new Error('Failed to replicate all objective periods');
         return res.json();
     },
 

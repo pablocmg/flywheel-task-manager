@@ -32,7 +32,7 @@ export const getGroupsByNode = async (req: Request, res: Response) => {
         const result = await db.query(query, [nodeId]);
         res.json(result.rows);
     } catch (error) {
-        console.error('Error fetching objective groups:', error);
+        console.error('Error fetching objective periods:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 };
@@ -46,7 +46,7 @@ export const createGroup = async (req: Request, res: Response) => {
         );
         res.status(201).json(result.rows[0]);
     } catch (error) {
-        console.error('Error creating objective group:', error);
+        console.error('Error creating objective period:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 };
@@ -60,11 +60,11 @@ export const updateGroup = async (req: Request, res: Response) => {
             [alias, target_date, id]
         );
         if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Objective group not found' });
+            return res.status(404).json({ error: 'Objective period not found' });
         }
         res.json(result.rows[0]);
     } catch (error) {
-        console.error('Error updating objective group:', error);
+        console.error('Error updating objective period:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 };
@@ -74,11 +74,11 @@ export const deleteGroup = async (req: Request, res: Response) => {
     try {
         const result = await db.query('DELETE FROM objective_groups WHERE id = $1 RETURNING *', [id]);
         if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Objective group not found' });
+            return res.status(404).json({ error: 'Objective period not found' });
         }
-        res.json({ message: 'Objective group deleted successfully' });
+        res.json({ message: 'Objective period deleted successfully' });
     } catch (error) {
-        console.error('Error deleting objective group:', error);
+        console.error('Error deleting objective period:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 };
@@ -89,7 +89,7 @@ export const replicateGroup = async (req: Request, res: Response) => {
         // Get the source group (only alias and target_date)
         const sourceGroup = await db.query('SELECT * FROM objective_groups WHERE id = $1', [id]);
         if (sourceGroup.rows.length === 0) {
-            return res.status(404).json({ error: 'Objective group not found' });
+            return res.status(404).json({ error: 'Objective period not found' });
         }
 
         const { alias, target_date, node_id } = sourceGroup.rows[0];
@@ -101,22 +101,30 @@ export const replicateGroup = async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'No other nodes to replicate to' });
         }
 
-        // Create empty groups in all other nodes (no objectives, no KRs)
+        // Create empty groups in all other nodes (no objectives, no KRs) if they don't exist
         const createdGroups = [];
         for (const node of otherNodes.rows) {
             const result = await db.query(
-                'INSERT INTO objective_groups (node_id, alias, target_date) VALUES ($1, $2, $3) RETURNING *',
+                `INSERT INTO objective_groups (node_id, alias, target_date)
+                 SELECT $1, $2, $3
+                 WHERE NOT EXISTS (
+                     SELECT 1 FROM objective_groups 
+                     WHERE node_id = $1 AND alias = $2
+                 )
+                 RETURNING *`,
                 [node.id, alias, target_date]
             );
-            createdGroups.push(result.rows[0]);
+            if (result.rows.length > 0) {
+                createdGroups.push(result.rows[0]);
+            }
         }
 
         res.json({
-            message: `Group replicated to ${createdGroups.length} node(s)`,
+            message: `Period replicated to ${createdGroups.length} node(s)`,
             createdGroups
         });
     } catch (error) {
-        console.error('Error replicating objective group:', error);
+        console.error('Error replicating objective period:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 };
@@ -129,18 +137,18 @@ export const deleteAllGroupsByNode = async (req: Request, res: Response) => {
         const count = parseInt(countResult.rows[0].count);
 
         if (count === 0) {
-            return res.status(404).json({ error: 'No objective groups found for this node' });
+            return res.status(404).json({ error: 'No objective periods found for this node' });
         }
 
         // Delete all groups for this node (cascading will handle objectives, KRs, and tasks)
         await db.query('DELETE FROM objective_groups WHERE node_id = $1', [nodeId]);
 
         res.json({
-            message: `Successfully deleted ${count} objective group(s) from node`,
+            message: `Successfully deleted ${count} objective period(s) from node`,
             deletedCount: count
         });
     } catch (error) {
-        console.error('Error deleting all objective groups:', error);
+        console.error('Error deleting all objective periods:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 };
@@ -153,7 +161,7 @@ export const replicateAllGroupsFromNode = async (req: Request, res: Response) =>
         const groups = groupsResult.rows;
 
         if (groups.length === 0) {
-            return res.status(404).json({ error: 'No objective groups found to replicate' });
+            return res.status(404).json({ error: 'No objective periods found to replicate' });
         }
 
         // Get all other nodes
@@ -169,20 +177,28 @@ export const replicateAllGroupsFromNode = async (req: Request, res: Response) =>
         // Use a transaction for reliability if possible, or just loop
         for (const targetNode of otherNodes) {
             for (const group of groups) {
-                await db.query(
-                    'INSERT INTO objective_groups (node_id, alias, target_date) VALUES ($1, $2, $3)',
+                const result = await db.query(
+                    `INSERT INTO objective_groups (node_id, alias, target_date)
+                     SELECT $1, $2, $3
+                     WHERE NOT EXISTS (
+                         SELECT 1 FROM objective_groups 
+                         WHERE node_id = $1 AND alias = $2
+                     )
+                     RETURNING *`,
                     [targetNode.id, group.alias, group.target_date]
                 );
-                totalCreated++;
+                if (result.rows.length > 0) {
+                    totalCreated++;
+                }
             }
         }
 
         res.json({
-            message: `Replicated ${groups.length} group(s) to ${otherNodes.length} node(s).`,
+            message: `Replicated ${groups.length} period(s) to ${otherNodes.length} node(s).`,
             totalCreated
         });
     } catch (error) {
-        console.error('Error replicating all objective groups:', error);
+        console.error('Error replicating all objective periods:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 };

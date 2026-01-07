@@ -103,12 +103,12 @@ const Planning: React.FC = () => {
     // Group handlers
     const handleCreateGroup = async () => {
         if (!selectedNodeId || !newGroup.alias.trim()) {
-            alert('Debes ingresar un alias para el grupo');
+            alert('Debes ingresar un alias para el periodo');
             return;
         }
 
         if (!newGroup.target_date) {
-            alert('Debes seleccionar una fecha objetivo para el grupo');
+            alert('Debes seleccionar una fecha objetivo para el periodo');
             return;
         }
 
@@ -124,7 +124,7 @@ const Planning: React.FC = () => {
             await loadObjectiveGroups();
         } catch (err) {
             console.error(err);
-            alert('Error al crear el grupo de objetivos');
+            alert('Error al crear el periodo de objetivos');
         } finally {
             setIsCreatingGroup(false);
         }
@@ -139,7 +139,7 @@ const Planning: React.FC = () => {
             loadObjectiveGroups();
         } catch (err) {
             console.error(err);
-            alert('Error al eliminar el grupo');
+            alert('Error al eliminar el periodo');
         }
     };
 
@@ -149,10 +149,10 @@ const Planning: React.FC = () => {
         try {
             const result = await api.replicateObjectiveGroup(confirmReplicateGroup.id);
             setConfirmReplicateGroup(null);
-            alert(`Grupo replicado exitosamente a ${result.createdGroups.length} nodo(s)`);
+            alert(`Periodo replicado exitosamente a ${result.createdGroups.length} nodo(s)`);
         } catch (err) {
             console.error(err);
-            alert('Error al replicar el grupo');
+            alert('Error al replicar el periodo');
         }
     };
 
@@ -163,10 +163,10 @@ const Planning: React.FC = () => {
             const result = await api.deleteAllObjectiveGroupsByNode(selectedNodeId);
             setConfirmDeleteAllGroups(false);
             loadObjectiveGroups();
-            alert(`Se eliminaron ${result.deletedCount} grupo(s) de objetivos exitosamente`);
+            alert(`Se eliminaron ${result.deletedCount} periodo(s) de objetivos exitosamente`);
         } catch (err) {
             console.error(err);
-            alert('Error al eliminar todos los grupos');
+            alert('Error al eliminar todos los periodos');
         }
     };
 
@@ -176,10 +176,10 @@ const Planning: React.FC = () => {
         try {
             const result = await api.replicateAllObjectiveGroupsFromNode(selectedNodeId);
             setConfirmReplicateAllGroups(false);
-            alert(`Se replicaron ${objectiveGroups.length} grupo(s) a todos los demás nodos exitosamente (${result.totalCreated} grupos creados en total)`);
+            alert(`Se replicaron ${objectiveGroups.length} periodo(s) a todos los demás nodos exitosamente (${result.totalCreated} periodos creados en total)`);
         } catch (err) {
             console.error(err);
-            alert('Error al replicar todos los grupos');
+            alert('Error al replicar todos los periodos');
         }
     };
 
@@ -280,7 +280,7 @@ const Planning: React.FC = () => {
             <div style={{ marginBottom: 'var(--space-xl)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
                     <h1>Planificación Estratégica</h1>
-                    <p className="text-muted">Gestiona grupos de objetivos, objetivos individuales y resultados clave por nodo.</p>
+                    <p className="text-muted">Gestiona periodos de objetivos, objetivos individuales y resultados clave por nodo.</p>
                 </div>
             </div>
 
@@ -339,7 +339,7 @@ const Planning: React.FC = () => {
                                             }}
                                         >
                                             <Copy size={18} />
-                                            Copiar Todos los Grupos a los demás Nodos
+                                            Copiar Todos los Periodos a los demás Nodos
                                         </button>
                                         <button
                                             onClick={() => setConfirmDeleteAllGroups(true)}
@@ -366,7 +366,7 @@ const Planning: React.FC = () => {
                                             }}
                                         >
                                             <Trash2 size={18} />
-                                            Borrar Todos los Grupos de este Nodo
+                                            Borrar Todos los Periodos de este Nodo
                                         </button>
                                     </>
                                 )}
@@ -488,7 +488,7 @@ const Planning: React.FC = () => {
                                             <button
                                                 onClick={() => setConfirmReplicateGroup(group)}
                                                 style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid #3b82f6', color: '#3b82f6', borderRadius: '4px', padding: '6px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                                                title="Replicar grupo a todos los nodos"
+                                                title="Replicar periodo a todos los nodos"
                                             >
                                                 <Copy size={16} />
                                             </button>
@@ -656,9 +656,9 @@ const Planning: React.FC = () => {
                             {/* Create Group Button/Form */}
                             {creatingGroup ? (
                                 <div className="glass-panel" style={{ padding: 'var(--space-lg)' }}>
-                                    <h3>Nuevo Grupo de Objetivos</h3>
+                                    <h3>Nuevo Periodo de Objetivos</h3>
                                     <input
-                                        placeholder="Alias del grupo (ej: Q1 2025, Semestre 1)"
+                                        placeholder="Alias del periodo (ej: Q1 2025, Semestre 1)"
                                         value={newGroup.alias}
                                         onChange={e => setNewGroup({ ...newGroup, alias: e.target.value })}
                                         style={{ width: '100%', marginBottom: '12px', padding: '10px', background: 'var(--bg-app)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px' }}
@@ -679,6 +679,12 @@ const Planning: React.FC = () => {
                                         style={{ width: '100%', marginBottom: '12px', padding: '10px', background: 'var(--bg-app)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '4px', cursor: 'pointer' }}
                                     />
                                     <div style={{ display: 'flex', gap: '12px' }}>
+                                        <button
+                                            onClick={() => { setCreatingGroup(false); setNewGroup({ alias: '', target_date: '' }); }}
+                                            style={{ flex: 1, padding: '10px', background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: '4px', cursor: 'pointer' }}
+                                        >
+                                            Cancelar
+                                        </button>
                                         <button
                                             onClick={handleCreateGroup}
                                             disabled={isCreatingGroup}
@@ -709,13 +715,7 @@ const Planning: React.FC = () => {
                                                     }}></span>
                                                     Creando...
                                                 </>
-                                            ) : 'Crear Grupo'}
-                                        </button>
-                                        <button
-                                            onClick={() => { setCreatingGroup(false); setNewGroup({ alias: '', target_date: '' }); }}
-                                            style={{ flex: 1, padding: '10px', background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: '4px', cursor: 'pointer' }}
-                                        >
-                                            Cancelar
+                                            ) : 'Crear Periodo'}
                                         </button>
                                     </div>
                                 </div>
@@ -736,7 +736,7 @@ const Planning: React.FC = () => {
                                     }}
                                 >
                                     <Plus size={18} />
-                                    Nuevo Grupo de Objetivos
+                                    Nuevo Periodo de Objetivos
                                 </button>
                             )}
                         </div>
@@ -756,10 +756,10 @@ const Planning: React.FC = () => {
                         </div>
                         <h3 style={{ margin: '0 0 var(--space-sm) 0', color: '#ef4444' }}>⚠️ ADVERTENCIA</h3>
                         <p className="text-muted" style={{ marginBottom: 'var(--space-md)' }}>
-                            ¿Estás seguro de que quieres <strong>ELIMINAR</strong> el grupo "<strong>{confirmDeleteGroup.alias}</strong>"?
+                            ¿Estás seguro de que quieres <strong>ELIMINAR</strong> el periodo "<strong>{confirmDeleteGroup.alias}</strong>"?
                         </p>
                         <p style={{ marginBottom: 'var(--space-md)', color: '#f87171', fontSize: '0.9rem' }}>
-                            Esta acción es <strong>PERMANENTE</strong> y eliminará el grupo, <strong>todos sus objetivos</strong>, <strong>todos los resultados clave</strong> y <strong>todas las tareas asociadas</strong>.
+                            Esta acción es <strong>PERMANENTE</strong> y eliminará el periodo, <strong>todos sus objetivos</strong>, <strong>todos los resultados clave</strong> y <strong>todas las tareas asociadas</strong>.
                         </p>
                         <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
                             <button
@@ -787,7 +787,7 @@ const Planning: React.FC = () => {
                                     fontWeight: 'bold'
                                 }}
                             >
-                                ELIMINAR GRUPO
+                                ELIMINAR PERIODO
                             </button>
                         </div>
                     </div>
@@ -804,12 +804,12 @@ const Planning: React.FC = () => {
                         <div style={{ marginBottom: 'var(--space-md)' }}>
                             <Copy size={48} color="#3b82f6" />
                         </div>
-                        <h3 style={{ margin: '0 0 var(--space-sm) 0', color: '#3b82f6' }}>Replicar Grupo</h3>
+                        <h3 style={{ margin: '0 0 var(--space-sm) 0', color: '#3b82f6' }}>Replicar Periodo</h3>
                         <p className="text-muted" style={{ marginBottom: 'var(--space-md)' }}>
-                            ¿Quieres replicar el grupo "<strong>{confirmReplicateGroup.alias}</strong>" a todos los demás nodos?
+                            ¿Quieres replicar el periodo "<strong>{confirmReplicateGroup.alias}</strong>" a todos los demás nodos?
                         </p>
                         <p style={{ marginBottom: 'var(--space-md)', color: '#60a5fa', fontSize: '0.9rem' }}>
-                            Se creará un grupo <strong>vacío</strong> con el mismo <strong>alias</strong> y <strong>fecha objetivo</strong> en todos los nodos. Los objetivos y resultados clave <strong>NO</strong> se copiarán.
+                            Se creará un periodo <strong>vacío</strong> con el mismo <strong>alias</strong> y <strong>fecha objetivo</strong> en todos los nodos. Los objetivos y resultados clave <strong>NO</strong> se copiarán.
                         </p>
                         <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
                             <button
@@ -837,7 +837,7 @@ const Planning: React.FC = () => {
                                     fontWeight: 'bold'
                                 }}
                             >
-                                REPLICAR GRUPO
+                                REPLICAR PERIODO
                             </button>
                         </div>
                     </div>
@@ -906,14 +906,14 @@ const Planning: React.FC = () => {
                         </div>
                         <h3 style={{ margin: '0 0 var(--space-sm) 0', color: '#ef4444', fontSize: '1.5rem' }}>🚨 PELIGRO EXTREMO</h3>
                         <p className="text-muted" style={{ marginBottom: 'var(--space-md)', fontSize: '1.1rem' }}>
-                            ¿Estás seguro de que quieres <strong>ELIMINAR TODOS</strong> los grupos de objetivos del nodo "<strong>{selectedNode.name}</strong>"?
+                            ¿Estás seguro de que quieres <strong>ELIMINAR TODOS</strong> los periodos de objetivos del nodo "<strong>{selectedNode.name}</strong>"?
                         </p>
                         <p style={{ marginBottom: 'var(--space-md)', color: '#f87171', fontSize: '1rem', fontWeight: 600 }}>
                             Esta acción es <strong>IRREVERSIBLE</strong> y eliminará:
                         </p>
                         <ul style={{ textAlign: 'left', marginBottom: 'var(--space-md)', color: '#f87171', paddingLeft: '40px' }}>
-                            <li><strong>Todos los grupos de objetivos</strong> ({objectiveGroups.length} grupos)</li>
-                            <li><strong>Todos los objetivos</strong> dentro de esos grupos</li>
+                            <li><strong>Todos los periodos de objetivos</strong> ({objectiveGroups.length} periodos)</li>
+                            <li><strong>Todos los objetivos</strong> dentro de esos periodos</li>
                             <li><strong>Todos los resultados clave</strong></li>
                             <li><strong>Todas las tareas asociadas</strong></li>
                         </ul>
@@ -968,10 +968,10 @@ const Planning: React.FC = () => {
                         </div>
                         <h3 style={{ margin: '0 0 var(--space-sm) 0', color: '#3b82f6', fontSize: '1.5rem' }}>COPIAR ESTRUCTURA</h3>
                         <p className="text-muted" style={{ marginBottom: 'var(--space-md)', fontSize: '1.1rem' }}>
-                            ¿Quieres copiar los <strong>{objectiveGroups.length}</strong> grupos de objetivos del nodo "<strong>{selectedNode.name}</strong>" a todos los demás nodos?
+                            ¿Quieres copiar los <strong>{objectiveGroups.length}</strong> periodos de objetivos del nodo "<strong>{selectedNode.name}</strong>" a todos los demás nodos?
                         </p>
                         <p style={{ marginBottom: 'var(--space-md)', color: '#60a5fa', fontSize: '1rem', fontWeight: 600 }}>
-                            Se crearán grupos <strong>vacíos</strong> con los mismos <strong>alias</strong> y <strong>fechas objetivo</strong> en todos los nodos. Los objetivos y resultados clave <strong>NO</strong> se copiarán.
+                            Se crearán periodos <strong>vacíos</strong> con los mismos <strong>alias</strong> y <strong>fechas objetivo</strong> en todos los nodos. Los objetivos y resultados clave <strong>NO</strong> se copiarán.
                         </p>
                         <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
                             <button
