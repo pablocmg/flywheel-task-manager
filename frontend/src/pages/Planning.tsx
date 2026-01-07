@@ -49,6 +49,7 @@ const Planning: React.FC = () => {
     const [confirmReplicateGroup, setConfirmReplicateGroup] = useState<ObjectiveGroup | null>(null);
     const [confirmDeleteAllGroups, setConfirmDeleteAllGroups] = useState(false);
     const [confirmReplicateAllGroups, setConfirmReplicateAllGroups] = useState(false);
+    const [successReplicateAllGroups, setSuccessReplicateAllGroups] = useState<{ periodsCount: number; totalCreated: number } | null>(null);
     const dateInputRef = useRef<HTMLInputElement>(null);
 
     // Objective management
@@ -176,7 +177,7 @@ const Planning: React.FC = () => {
         try {
             const result = await api.replicateAllObjectiveGroupsFromNode(selectedNodeId);
             setConfirmReplicateAllGroups(false);
-            alert(`Se replicaron ${objectiveGroups.length} periodo(s) a todos los demás nodos exitosamente (${result.totalCreated} periodos creados en total)`);
+            setSuccessReplicateAllGroups({ periodsCount: objectiveGroups.length, totalCreated: result.totalCreated });
         } catch (err) {
             console.error(err);
             alert('Error al replicar todos los periodos');
@@ -1003,6 +1004,47 @@ const Planning: React.FC = () => {
                                 }}
                             >
                                 SÍ, COPIAR TODO
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Success Modal for Replicate All Groups */}
+            {successReplicateAllGroups && selectedNode && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                    background: 'rgba(0,0,0,0.8)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1001
+                }}>
+                    <div className="glass-panel" style={{ padding: 'var(--space-lg)', width: '500px', textAlign: 'center' }}>
+                        <div style={{ marginBottom: 'var(--space-md)' }}>
+                            <Check size={56} color="#10b981" />
+                        </div>
+                        <h3 style={{ margin: '0 0 var(--space-sm) 0', color: '#10b981', fontSize: '1.5rem' }}>✓ REPLICACIÓN EXITOSA</h3>
+                        <p className="text-muted" style={{ marginBottom: 'var(--space-md)', fontSize: '1.1rem' }}>
+                            Se replicaron <strong>{successReplicateAllGroups.periodsCount}</strong> periodo(s) a todos los demás nodos exitosamente
+                        </p>
+                        <p style={{ marginBottom: 'var(--space-md)', color: '#34d399', fontSize: '1rem', fontWeight: 600 }}>
+                            <strong>{successReplicateAllGroups.totalCreated}</strong> periodos creados en total
+                        </p>
+                        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                            <button
+                                onClick={() => {
+                                    setSuccessReplicateAllGroups(null);
+                                    loadObjectiveGroups();
+                                }}
+                                style={{
+                                    padding: '12px 28px',
+                                    background: '#10b981',
+                                    border: 'none',
+                                    color: 'white',
+                                    cursor: 'pointer',
+                                    borderRadius: 'var(--radius-md)',
+                                    fontWeight: 'bold',
+                                    fontSize: '1rem'
+                                }}
+                            >
+                                OK
                             </button>
                         </div>
                     </div>
