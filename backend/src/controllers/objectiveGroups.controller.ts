@@ -106,10 +106,10 @@ export const replicateGroup = async (req: Request, res: Response) => {
         for (const node of otherNodes.rows) {
             const result = await db.query(
                 `INSERT INTO objective_groups (node_id, alias, target_date)
-                 SELECT $1, $2, $3
+                 SELECT $1::uuid, $2::varchar(255), $3::date
                  WHERE NOT EXISTS (
                      SELECT 1 FROM objective_groups 
-                     WHERE node_id = $1 AND alias = $2
+                     WHERE node_id = $1::uuid AND alias = $2::varchar(255)
                  )
                  RETURNING *`,
                 [node.id, alias, target_date]
@@ -179,10 +179,10 @@ export const replicateAllGroupsFromNode = async (req: Request, res: Response) =>
             for (const group of groups) {
                 const result = await db.query(
                     `INSERT INTO objective_groups (node_id, alias, target_date)
-                     SELECT $1, $2, $3
+                     SELECT $1::uuid, $2::varchar(255), $3::date
                      WHERE NOT EXISTS (
                          SELECT 1 FROM objective_groups 
-                         WHERE node_id = $1 AND alias = $2
+                         WHERE node_id = $1::uuid AND alias = $2::varchar(255)
                      )
                      RETURNING *`,
                     [targetNode.id, group.alias, group.target_date]
