@@ -6,7 +6,7 @@ interface Node {
     id: string;
     name: string;
     color: string;
-    objectives?: Objective[];
+    objectiveGroups?: { id: string; alias: string; objectives?: Objective[] }[];
 }
 
 interface Objective {
@@ -240,32 +240,55 @@ const ProjectFormModal: React.FC<ProjectFormModalProps> = ({ isOpen, onClose, pr
                     <div>
                         <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600 }}>Vincular a Objetivos (Mínimo 1) *</label>
                         <div style={{ maxHeight: '200px', overflow: 'auto', padding: '10px', background: 'var(--bg-app)', borderRadius: 'var(--radius-sm)', border: errors.objectives ? '1px solid #ef4444' : '1px solid var(--border-color)' }}>
-                            {nodes.length === 0 || nodes.every(n => !n.objectives || n.objectives.length === 0) ? (
+                            {nodes.length === 0 || nodes.every(n => !n.objectiveGroups || n.objectiveGroups.length === 0) ? (
                                 <div style={{ textAlign: 'center', padding: 'var(--space-md)', color: 'var(--warning)', fontSize: '0.9rem' }}>
                                     ⚠️ No hay objetivos estratégicos creados.
                                 </div>
                             ) : (
-                                nodes.map(node => (
-                                    <div key={node.id} style={{ marginBottom: '10px' }}>
-                                        <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: node.color, marginBottom: '4px' }}>{node.name}</div>
-                                        {node.objectives?.map(obj => (
-                                            <label key={obj.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0', cursor: 'pointer', fontSize: '0.9rem' }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.objective_ids.includes(obj.id)}
-                                                    onChange={e => {
-                                                        const ids = e.target.checked
-                                                            ? [...formData.objective_ids, obj.id]
-                                                            : formData.objective_ids.filter(id => id !== obj.id);
-                                                        setFormData({ ...formData, objective_ids: ids });
-                                                        setErrors({ ...errors, objectives: false });
-                                                    }}
-                                                />
-                                                {obj.type === 'annual' ? '🎯 ' : ''}{obj.description} {obj.quarter && `(${obj.quarter})`}
-                                            </label>
-                                        ))}
-                                    </div>
-                                ))
+                                nodes.map(node => {
+                                    // Skip nodes with no objective groups
+                                    if (!node.objectiveGroups || node.objectiveGroups.length === 0) return null;
+
+                                    return (
+                                        <div key={node.id} style={{ marginBottom: '16px' }}>
+                                            {/* Node Name */}
+                                            <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: node.color, marginBottom: '8px' }}>{node.name}</div>
+
+                                            {/* Objective Groups (Periods) */}
+                                            {node.objectiveGroups.map(group => {
+                                                // Skip groups with no objectives
+                                                if (!group.objectives || group.objectives.length === 0) return null;
+
+                                                return (
+                                                    <div key={group.id} style={{ marginBottom: '10px', marginLeft: '12px' }}>
+                                                        {/* Period Header (non-selectable) */}
+                                                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                            📅 {group.alias}
+                                                        </div>
+
+                                                        {/* Objectives (selectable) */}
+                                                        {group.objectives.map(obj => (
+                                                            <label key={obj.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0', cursor: 'pointer', fontSize: '0.9rem', marginLeft: '8px' }}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={formData.objective_ids.includes(obj.id)}
+                                                                    onChange={e => {
+                                                                        const ids = e.target.checked
+                                                                            ? [...formData.objective_ids, obj.id]
+                                                                            : formData.objective_ids.filter(id => id !== obj.id);
+                                                                        setFormData({ ...formData, objective_ids: ids });
+                                                                        setErrors({ ...errors, objectives: false });
+                                                                    }}
+                                                                />
+                                                                {obj.type === 'annual' ? '🎯 ' : ''}{obj.description} {obj.quarter && `(${obj.quarter})`}
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    );
+                                })
                             )}
                         </div>
                         {errors.objectives && (

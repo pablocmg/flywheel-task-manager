@@ -20,13 +20,13 @@ export const RootLayout: React.FC = () => {
                         <Settings size={20} />
                         <span>Config Nodos</span>
                     </NavLink>
-                    <NavLink to="/planning" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                        <Calendar size={20} />
-                        <span>Planificación</span>
-                    </NavLink>
                     <NavLink to="/projects" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                         <Folder size={20} />
                         <span>Proyectos</span>
+                    </NavLink>
+                    <NavLink to="/planning" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                        <Calendar size={20} />
+                        <span>Planificación</span>
                     </NavLink>
                     <NavLink to="/execution" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                         <CheckSquare size={20} />

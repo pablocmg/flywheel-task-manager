@@ -7,7 +7,7 @@ interface Node {
     id: string;
     name: string;
     color: string;
-    objectives?: Objective[];
+    objectiveGroups?: { id: string; alias: string; objectives: Objective[] }[];
 }
 
 interface Objective {
@@ -77,10 +77,10 @@ const Projects: React.FC = () => {
                 api.getNodes()
             ]);
 
-            // Load objectives for each node
+            // Load objective groups for each node (preserve group structure)
             const nodesWithObjectives = await Promise.all(nodesData.map(async (n: Node) => {
-                const objectives = await api.getObjectives(n.id);
-                return { ...n, objectives };
+                const objectiveGroups = await api.getObjectiveGroups(n.id);
+                return { ...n, objectiveGroups };
             }));
 
             setProjects(projectsData);
@@ -212,13 +212,17 @@ const Projects: React.FC = () => {
         const project = projects.find(p => p.id === projectId);
         if (!project || !project.objective_ids) return [];
 
-        // Get all objectives from all nodes and filter by project's objective_ids
+        // Get all objectives from all nodes' objective groups and filter by project's objective_ids
         const allObjectives: Objective[] = [];
         nodes.forEach(node => {
-            if (node.objectives) {
-                node.objectives.forEach(obj => {
-                    if (project.objective_ids?.includes(obj.id)) {
-                        allObjectives.push(obj);
+            if (node.objectiveGroups) {
+                node.objectiveGroups.forEach(group => {
+                    if (group.objectives) {
+                        group.objectives.forEach(obj => {
+                            if (project.objective_ids?.includes(obj.id)) {
+                                allObjectives.push(obj);
+                            }
+                        });
                     }
                 });
             }
