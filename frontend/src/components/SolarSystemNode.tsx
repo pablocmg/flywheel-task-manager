@@ -553,15 +553,15 @@ export const SolarSystemNode: React.FC<Props> = ({ nodes }) => {
                                                 color: '#132230',
                                                 border: '2px solid #132230',
                                                 borderRadius: '50px',
-                                                padding: '10px 24px',
+                                                padding: '8px 20px',
                                                 fontWeight: 700,
                                                 fontSize: '14px',
                                                 marginBottom: '24px',
-                                                whiteSpace: 'nowrap',
                                                 width: 'auto',
                                                 maxWidth: '100%',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis'
+                                                wordWrap: 'break-word',
+                                                overflowWrap: 'break-word',
+                                                lineHeight: '1.3'
                                             }}
                                         >
                                             {node.name}
