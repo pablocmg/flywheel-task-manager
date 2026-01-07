@@ -379,7 +379,7 @@ const Planning: React.FC = () => {
                         <div>
                             {/* Objective Groups */}
                             {objectiveGroups.map(group => (
-                                <div key={group.id} className="glass-panel" style={{ padding: 'var(--space-lg)', marginBottom: 'var(--space-lg)', borderLeft: `4px solid ${selectedNode.color}` }}>
+                                <div key={group.id} className="glass-panel" style={{ padding: 'var(--space-md)', marginBottom: 'var(--space-lg)', borderLeft: `4px solid ${selectedNode.color}` }}>
                                     {/* Group Header */}
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-md)' }}>
                                         <div style={{ flex: 1 }}>
@@ -401,7 +401,7 @@ const Planning: React.FC = () => {
                                             ) : (
                                                 <h2
                                                     onClick={() => { setEditingGroupAliasId(group.id); setEditingGroupAlias(group.alias); }}
-                                                    style={{ margin: 0, cursor: 'pointer', fontSize: '1.1rem', fontWeight: 600 }}
+                                                    style={{ margin: 0, cursor: 'pointer', fontSize: '1.1rem', fontWeight: 600, wordWrap: 'break-word', overflowWrap: 'break-word', lineHeight: '1.4' }}
                                                 >
                                                     {group.alias}
                                                 </h2>
@@ -546,7 +546,7 @@ const Planning: React.FC = () => {
                                                     ) : (
                                                         <h4
                                                             onClick={() => { setEditingObjId(obj.id); setEditingObjDesc(obj.description); }}
-                                                            style={{ margin: 0, cursor: 'pointer', fontSize: '0.95rem', fontWeight: 500 }}
+                                                            style={{ margin: 0, cursor: 'pointer', fontSize: '0.95rem', fontWeight: 500, wordWrap: 'break-word', overflowWrap: 'break-word', lineHeight: '1.4' }}
                                                         >
                                                             {obj.description}
                                                         </h4>
