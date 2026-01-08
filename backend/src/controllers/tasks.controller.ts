@@ -1,42 +1,18 @@
-
 import { Request, Response } from 'express';
 import * as db from '../db';
-
-export const getTasksByObjective = async (req: Request, res: Response) => {
-    const { objectiveId } = req.params;
-    try {
-        const query = `
-            SELECT t.*, o.description as objective_title, p.name as project_name,
-            (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count
-            FROM tasks t
-            JOIN objectives o ON t.objective_id = o.id
-            LEFT JOIN projects p ON t.project_id = p.id
-            WHERE t.objective_id = $1 
-            ORDER BY t.created_at DESC
-        `;
-        const result = await db.query(query, [objectiveId]);
-        res.json(result.rows);
-    } catch (error) {
-        console.error('Error fetching tasks:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-};
 
 export const getAllTasks = async (req: Request, res: Response) => {
     try {
         const query = `
-            SELECT t.*, 
-                   o.description as objective_title,
-                   o.node_id,
+            SELECT t.*, o.description as objective_title, p.name as project_name,
                    n.name as node_name,
                    n.color as node_color,
-                   p.name as project_name,
                    (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count,
                    (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes
             FROM tasks t
             JOIN objectives o ON t.objective_id = o.id
-            JOIN nodes n ON o.node_id = n.id
             LEFT JOIN projects p ON t.project_id = p.id
+            LEFT JOIN nodes n ON o.node_id = n.id
             ORDER BY t.priority_score DESC
         `;
         const result = await db.query(query);
@@ -47,17 +23,99 @@ export const getAllTasks = async (req: Request, res: Response) => {
     }
 };
 
+export const getTaskById = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    try {
+        const query = `
+            SELECT t.*, 
+                   o.description as objective_title,
+                   p.name as project_name,
+                   n.name as node_name,
+                   n.color as node_color,
+                   (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count,
+                   (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes
+            FROM tasks t
+            JOIN objectives o ON t.objective_id = o.id
+            LEFT JOIN projects p ON t.project_id = p.id
+            LEFT JOIN nodes n ON o.node_id = n.id
+            WHERE t.id = $1
+        `;
+        const result = await db.query(query, [id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Task not found' });
+        }
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Error fetching task:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
+export const getTasksByObjective = async (req: Request, res: Response) => {
+    const { objectiveId } = req.params;
+    try {
+        const query = `
+            SELECT t.*, 
+                   o.description as objective_title,
+                   p.name as project_name,
+                   (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count,
+                   (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes
+            FROM tasks t
+            JOIN objectives o ON t.objective_id = o.id
+            LEFT JOIN projects p ON t.project_id = p.id
+            WHERE t.objective_id = $1
+            ORDER BY t.priority_score DESC
+        `;
+        const result = await db.query(query, [objectiveId]);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching tasks by objective:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
+export const getTasksByProject = async (req: Request, res: Response) => {
+    const { projectId } = req.params;
+    try {
+        const query = `
+            SELECT t.*, 
+                   o.description as objective_title,
+                   p.name as project_name,
+                   n.name as node_name,
+                   n.color as node_color,
+                   (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count,
+                   (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes
+            FROM tasks t
+            JOIN objectives o ON t.objective_id = o.id
+            LEFT JOIN projects p ON t.project_id = p.id
+            LEFT JOIN nodes n ON o.node_id = n.id
+            WHERE t.project_id = $1
+            ORDER BY t.priority_score DESC
+        `;
+        const result = await db.query(query, [projectId]);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('Error fetching tasks by project:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
 export const getTasksByWeek = async (req: Request, res: Response) => {
     const { weekNumber } = req.params;
     try {
         const query = `
-            SELECT t.*, o.description as objective_title, p.name as project_name,
-            (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count,
-            (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes
+            SELECT t.*, 
+                   o.description as objective_title,
+                   p.name as project_name,
+                   n.name as node_name,
+                   n.color as node_color,
+                   (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count,
+                   (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes
             FROM tasks t
             JOIN objectives o ON t.objective_id = o.id
             LEFT JOIN projects p ON t.project_id = p.id
-            WHERE t.week_number = $1 
+            LEFT JOIN nodes n ON o.node_id = n.id
+            WHERE t.week_number = $1
             ORDER BY t.priority_score DESC
         `;
         const result = await db.query(query, [weekNumber]);
@@ -68,108 +126,60 @@ export const getTasksByWeek = async (req: Request, res: Response) => {
     }
 };
 
-export const getTasksByProject = async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+export const createTask = async (req: Request, res: Response) => {
+    const { title, description, objective_id, status, weight, priority_score, evidence_url, target_date, project_id } = req.body;
     try {
         const query = `
-            SELECT t.*, o.description as objective_title, p.name as project_name,
-            (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count
-            FROM tasks t
-            JOIN objectives o ON t.objective_id = o.id
-            LEFT JOIN projects p ON t.project_id = p.id
-            WHERE t.project_id = $1 
-            ORDER BY t.created_at DESC
+            INSERT INTO tasks (title, description, objective_id, status, weight, priority_score, evidence_url, target_date, project_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            RETURNING *
         `;
-        const result = await db.query(query, [projectId]);
-        res.json(result.rows);
+        const values = [title, description, objective_id, status || 'Backlog', weight || 1, priority_score || 0, evidence_url, target_date, project_id];
+        const result = await db.query(query, values);
+        res.status(201).json(result.rows[0]);
     } catch (error) {
-        console.error('Error fetching tasks by project:', error);
+        console.error('Error creating task:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 };
 
-export const createTask = async (req: Request, res: Response) => {
-    const { objective_id, project_id, title, description, assignee_id, week_number, weight, target_date, impacted_node_ids } = req.body;
-
-    // Calculate Priority Score
-    // Algo: PriorityScore = RemainingDays * (ObjectiveWeight * TaskImportance) + (Count(NodesImpacted) * 2)
-    // Simplified for now as we don't have ObjectiveWeight easily accessible without a join, assume 1 for obj weight.
-    // Remaining days = due_date - now (in days). If no due_date, assume 7 days.
-
-    let remainingDays = 7;
-    if (target_date) {
-        const diffTime = new Date(target_date).getTime() - new Date().getTime();
-        remainingDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        if (remainingDays < 0) remainingDays = 0; // Overdue tasks still have priority, but let's clamp positive for multiplier logic or handle differently.
-    }
-
-    const taskWeight = weight || 3;
-    const impactBonus = (impacted_node_ids && Array.isArray(impacted_node_ids)) ? impacted_node_ids.length * 2 : 0;
-
-    // Logic: Higher weight and closer due date (less remaining days) should increase score? 
-    // Usually Priority = Urgency * Importance. 
-    // Let's use: (TaskWeight * 10) + ImpactBonus - RemainingDays (closer is higher score, ensure min score)
-    // Or User's formula: RemainingDays * ... wait, if remaining days is large, priority is high? Maybe "1/RemainingDays".
-    // Let's invert RemainingDays effect: (30 - RemainingDays)
-
-    const timeFactor = Math.max(0, 30 - remainingDays); // Cap at 30 days window
-    const priority_score = (timeFactor * taskWeight) + impactBonus;
-
+export const updateTask = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { title, description, status, priority_score, objective_id, target_date, evidence_url } = req.body;
     try {
-        // Start transaction
-        await db.query('BEGIN');
-
-        const result = await db.query(
-            'INSERT INTO tasks (objective_id, project_id, title, description, assignee_id, week_number, weight, target_date, priority_score) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
-            [objective_id, project_id || null, title, description, assignee_id, week_number, taskWeight, target_date || null, priority_score]
-        );
-        const task = result.rows[0];
-
-        // Handle Cross Node Impacts
-        if (impacted_node_ids && Array.isArray(impacted_node_ids)) {
-            for (const nodeId of impacted_node_ids) {
-                await db.query(
-                    'INSERT INTO cross_node_impacts (source_task_id, target_node_id) VALUES ($1, $2)',
-                    [task.id, nodeId]
-                );
-            }
+        const query = `
+            UPDATE tasks
+            SET title = COALESCE($1, title),
+                description = COALESCE($2, description),
+                status = COALESCE($3, status),
+                priority_score = COALESCE($4, priority_score),
+                objective_id = COALESCE($5, objective_id),
+                target_date = COALESCE($6, target_date),
+                evidence_url = COALESCE($7, evidence_url)
+            WHERE id = $8
+            RETURNING *
+        `;
+        const values = [title, description, status, priority_score, objective_id, target_date, evidence_url, id];
+        const result = await db.query(query, values);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Task not found' });
         }
-
-        await db.query('COMMIT');
-        res.status(201).json(task);
+        res.json(result.rows[0]);
     } catch (error) {
-        await db.query('ROLLBACK');
-        console.error('Error creating task (Detailed):', {
-            error,
-            message: (error as Error).message,
-            stack: (error as Error).stack,
-            body: req.body
-        });
-        res.status(500).json({ error: 'Internal Server Error', details: (error as Error).message });
+        console.error('Error updating task:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
     }
 };
 
 export const updateTaskStatus = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { status } = req.body;
-
-    // Check for file upload
-    let evidence_url = req.body.evidence_url;
-    if (req.file) {
-        // Assuming the server serves 'uploads' statically or we construct a URL
-        evidence_url = `/uploads/${req.file.filename}`;
-    }
-
-    // User Story 3.1: Block closure if no evidence
-    // if (status === 'Done' && !evidence_url) {
-    //    return res.status(400).json({ error: 'Evidence (URL or File) is required to mark task as Done' });
-    // }
-
     try {
-        const result = await db.query(
-            'UPDATE tasks SET status = $1, evidence_url = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *',
-            [status, evidence_url, id]
-        );
+        const query = 'UPDATE tasks SET status = $1 WHERE id = $2 RETURNING *';
+        const result = await db.query(query, [status, id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Task not found' });
+        }
         res.json(result.rows[0]);
     } catch (error) {
         console.error('Error updating task status:', error);
@@ -179,53 +189,38 @@ export const updateTaskStatus = async (req: Request, res: Response) => {
 
 export const updateTaskPriority = async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { new_priority_score, reason } = req.body;
+    const { priority_score, reason } = req.body;
 
-    // Reason optional for Drag and Drop
-    const logReason = reason || "Auto-Reprioritization (Drag & Drop)";
-
-    try {
-        await db.query('BEGIN');
-
-        const result = await db.query(
-            'UPDATE tasks SET priority_score = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
-            [new_priority_score, id]
-        );
-
-        // Log to Audit Logs
-        // Assuming we have a user_id from auth (placeholder for now)
-        const user_id = null;
-        await db.query(
-            'INSERT INTO audit_logs (user_id, action, entity_type, entity_id, reason_for_change) VALUES ($1, $2, $3, $4, $5)',
-            [user_id, 'REPRIORITIZE', 'task', id, logReason]
-        );
-
-        await db.query('COMMIT');
-        res.json(result.rows[0]);
-    } catch (error) {
-        await db.query('ROLLBACK');
-        console.error('Error reprioritizing task:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
+    if (priority_score === undefined || priority_score === null) {
+        return res.status(400).json({ error: 'priority_score is required' });
     }
-};
-
-export const updateTask = async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const { title, description, objective_id, target_date } = req.body;
 
     try {
-        const result = await db.query(
-            'UPDATE tasks SET title = $1, description = $2, objective_id = $3, target_date = $4, updated_at = CURRENT_TIMESTAMP WHERE id = $5 RETURNING *',
-            [title, description, objective_id, target_date || null, id]
-        );
+        // Update the task's priority score
+        const updateQuery = 'UPDATE tasks SET priority_score = $1 WHERE id = $2 RETURNING *';
+        const updateResult = await db.query(updateQuery, [priority_score, id]);
 
-        if (result.rows.length === 0) {
+        if (updateResult.rows.length === 0) {
             return res.status(404).json({ error: 'Task not found' });
         }
 
-        res.json(result.rows[0]);
+        // Log the priority change (optional, for audit trail)
+        const logQuery = `
+            INSERT INTO priority_change_log (task_id, new_score, reason, changed_at)
+            VALUES ($1, $2, $3, NOW())
+        `;
+        const logReason = reason || 'Automatic reprioritization via drag-and-drop';
+
+        try {
+            await db.query(logQuery, [id, priority_score, logReason]);
+        } catch (logError) {
+            // If logging fails, it's not critical - continue
+            console.warn('Failed to log priority change:', logError);
+        }
+
+        res.json(updateResult.rows[0]);
     } catch (error) {
-        console.error('Error updating task:', error);
+        console.error('Error updating task priority:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 };
@@ -240,6 +235,92 @@ export const deleteTask = async (req: Request, res: Response) => {
         res.json({ message: 'Task deleted successfully' });
     } catch (error) {
         console.error('Error deleting task:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
+// Get task dependencies
+export const getTaskDependencies = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    try {
+        const query = `
+            SELECT 
+                td.dependency_type,
+                td.target_task_id,
+                t.title as target_task_title,
+                t.status as target_task_status
+            FROM task_dependencies td
+            JOIN tasks t ON td.target_task_id = t.id
+            WHERE td.source_task_id = $1
+            ORDER BY td.dependency_type, t.title
+        `;
+        const result = await db.query(query, [id]);
+
+        // Group by dependency type
+        const dependencies = {
+            depends_on: result.rows.filter(r => r.dependency_type === 'depends_on').map(r => ({
+                id: r.target_task_id,
+                title: r.target_task_title,
+                status: r.target_task_status
+            })),
+            enables: result.rows.filter(r => r.dependency_type === 'enables').map(r => ({
+                id: r.target_task_id,
+                title: r.target_task_title,
+                status: r.target_task_status
+            }))
+        };
+
+        res.json(dependencies);
+    } catch (error) {
+        console.error('Error fetching task dependencies:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
+// Update task dependencies
+export const updateTaskDependencies = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { depends_on, enables } = req.body;
+
+    try {
+        // Start transaction
+        await db.query('BEGIN');
+
+        // Delete existing dependencies for this task
+        await db.query('DELETE FROM task_dependencies WHERE source_task_id = $1', [id]);
+
+        // Insert new depends_on dependencies
+        if (depends_on && depends_on.length > 0) {
+            const dependsOnValues = depends_on.map((targetId: string) =>
+                `('${id}', '${targetId}', 'depends_on')`
+            ).join(',');
+
+            await db.query(`
+                INSERT INTO task_dependencies (source_task_id, target_task_id, dependency_type)
+                VALUES ${dependsOnValues}
+            `);
+        }
+
+        // Insert new enables dependencies
+        if (enables && enables.length > 0) {
+            const enablesValues = enables.map((targetId: string) =>
+                `('${id}', '${targetId}', 'enables')`
+            ).join(',');
+
+            await db.query(`
+                INSERT INTO task_dependencies (source_task_id, target_task_id, dependency_type)
+                VALUES ${enablesValues}
+            `);
+        }
+
+        // Commit transaction
+        await db.query('COMMIT');
+
+        res.json({ message: 'Dependencies updated successfully' });
+    } catch (error) {
+        // Rollback on error
+        await db.query('ROLLBACK');
+        console.error('Error updating task dependencies:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 };

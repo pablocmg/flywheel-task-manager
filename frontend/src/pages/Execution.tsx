@@ -279,6 +279,7 @@ const Execution: React.FC = () => {
     const [newTask, setNewTask] = useState({
         title: '',
         description: '',
+        project_id: '',
         objective_id: '',
         status: 'Backlog'
     });
@@ -302,19 +303,20 @@ const Execution: React.FC = () => {
             nodesData.forEach((n: any) => colorMap[n.id] = n.color);
             setNodeColors(colorMap);
 
-            // Load all objectives for task creation
-            const allObjectives: any[] = [];
-            for (const node of nodesData) {
-                try {
-                    const nodeObjectives = await api.getObjectives(node.id);
-                    allObjectives.push(...nodeObjectives);
-                } catch (err) {
-                    console.error(`Error loading objectives for node ${node.id}:`, err);
-                }
-            }
-            setObjectives(allObjectives);
-
             const data = await api.getAllTasks();
+
+            // Extract unique objectives from tasks (tasks already have project_name and objective info)
+            const objectivesMap = new Map();
+            data.forEach((task: any) => {
+                if (task.objective_id && !objectivesMap.has(task.objective_id)) {
+                    objectivesMap.set(task.objective_id, {
+                        id: task.objective_id,
+                        description: task.objective_title,
+                        project_name: task.project_name
+                    });
+                }
+            });
+            setObjectives(Array.from(objectivesMap.values()));
 
             // Initialize priority_score for tasks that don't have one
             // Assign scores from 1000 downwards based on current order
@@ -692,8 +694,8 @@ const Execution: React.FC = () => {
     };
 
     const handleCreateTask = async () => {
-        if (!newTask.title.trim() || !newTask.objective_id) {
-            alert('Debes ingresar un título y seleccionar un objetivo');
+        if (!newTask.title.trim() || !newTask.project_id || !newTask.objective_id) {
+            alert('Debes ingresar un título, seleccionar un proyecto y un objetivo');
             return;
         }
 
@@ -708,7 +710,7 @@ const Execution: React.FC = () => {
                 priority_score: 1000
             });
             setShowCreateTask(false);
-            setNewTask({ title: '', description: '', objective_id: '', status: 'Backlog' });
+            setNewTask({ title: '', description: '', project_id: '', objective_id: '', status: 'Backlog' });
             await loadNodesAndTasks();
         } catch (err) {
             console.error(err);
@@ -911,7 +913,6 @@ const Execution: React.FC = () => {
                 task={editingTask}
                 onClose={() => setEditingTask(null)}
                 onUpdate={handleUpdate}
-                projects={allProjects}
             />
 
             {/* Create Task Modal */}
@@ -940,7 +941,7 @@ const Execution: React.FC = () => {
                             <button
                                 onClick={() => {
                                     setShowCreateTask(false);
-                                    setNewTask({ title: '', description: '', objective_id: '', status: 'Backlog' });
+                                    setNewTask({ title: '', description: '', project_id: '', objective_id: '', status: 'Backlog' });
                                 }}
                                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
                             >
@@ -990,10 +991,19 @@ const Execution: React.FC = () => {
                             </div>
 
                             <div>
-                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Objetivo *</label>
+                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Proyecto *</label>
                                 <select
-                                    value={newTask.objective_id}
-                                    onChange={(e) => setNewTask({ ...newTask, objective_id: e.target.value })}
+                                    value={newTask.project_id}
+                                    onChange={(e) => {
+                                        const selectedProject = e.target.value;
+                                        // Filter objectives for the selected project
+                                        const filteredObjectives = objectives.filter(
+                                            (obj: any) => obj.project_name === selectedProject
+                                        );
+                                        // Auto-select if only one objective
+                                        const autoSelectedObjective = filteredObjectives.length === 1 ? filteredObjectives[0].id : '';
+                                        setNewTask({ ...newTask, project_id: selectedProject, objective_id: autoSelectedObjective });
+                                    }}
                                     style={{
                                         width: '100%',
                                         padding: '10px',
@@ -1004,20 +1014,21 @@ const Execution: React.FC = () => {
                                         fontSize: '0.95rem'
                                     }}
                                 >
-                                    <option value="">Selecciona un objetivo</option>
-                                    {objectives.map((obj: any) => (
-                                        <option key={obj.id} value={obj.id}>
-                                            {obj.description}
+                                    <option value="">Selecciona un proyecto</option>
+                                    {allProjects.map((project: string) => (
+                                        <option key={project} value={project}>
+                                            {project}
                                         </option>
                                     ))}
                                 </select>
                             </div>
 
                             <div>
-                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Estado Inicial</label>
+                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Objetivo *</label>
                                 <select
-                                    value={newTask.status}
-                                    onChange={(e) => setNewTask({ ...newTask, status: e.target.value })}
+                                    value={newTask.objective_id}
+                                    onChange={(e) => setNewTask({ ...newTask, objective_id: e.target.value })}
+                                    disabled={!newTask.project_id}
                                     style={{
                                         width: '100%',
                                         padding: '10px',
@@ -1025,12 +1036,23 @@ const Execution: React.FC = () => {
                                         border: '1px solid var(--glass-border)',
                                         borderRadius: 'var(--radius-md)',
                                         color: 'white',
-                                        fontSize: '0.95rem'
+                                        fontSize: '0.95rem',
+                                        opacity: !newTask.project_id ? 0.5 : 1,
+                                        cursor: !newTask.project_id ? 'not-allowed' : 'pointer'
                                     }}
                                 >
-                                    {COLUMNS.map(col => (
-                                        <option key={col.id} value={col.id}>{col.title}</option>
-                                    ))}
+                                    <option value="">Selecciona un objetivo</option>
+                                    {objectives
+                                        .filter((obj: any) => {
+                                            // Filter objectives by selected project
+                                            if (!newTask.project_id) return false;
+                                            return obj.project_name === newTask.project_id;
+                                        })
+                                        .map((obj: any) => (
+                                            <option key={obj.id} value={obj.id}>
+                                                {obj.description}
+                                            </option>
+                                        ))}
                                 </select>
                             </div>
 
@@ -1055,7 +1077,7 @@ const Execution: React.FC = () => {
                                 <button
                                     onClick={() => {
                                         setShowCreateTask(false);
-                                        setNewTask({ title: '', description: '', objective_id: '', status: 'Backlog' });
+                                        setNewTask({ title: '', description: '', project_id: '', objective_id: '', status: 'Backlog' });
                                     }}
                                     style={{
                                         padding: '12px 24px',

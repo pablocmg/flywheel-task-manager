@@ -12,6 +12,8 @@ router.post('/', tasksController.createTask);
 router.put('/:id', tasksController.updateTask);
 router.patch('/:id/status', upload.single('evidence'), tasksController.updateTaskStatus);
 router.patch('/:id/priority', tasksController.updateTaskPriority);
+router.get('/:id/dependencies', tasksController.getTaskDependencies);
+router.put('/:id/dependencies', tasksController.updateTaskDependencies);
 router.delete('/:id', tasksController.deleteTask);
 
 export default router;

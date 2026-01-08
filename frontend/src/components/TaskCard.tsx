@@ -18,6 +18,7 @@ interface Task {
     node_id?: string; // Added for node color
     project_name?: string;
     week_number?: number;
+    node_color?: string;
 }
 
 interface TaskCardProps {
@@ -40,10 +41,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, index, onUpdate, onEdi
         }
     };
 
-    // Determine Border Color: Priority Node Color -> Status Color
-    const borderColor = (task.node_id && nodeColors && nodeColors[task.node_id])
-        ? nodeColors[task.node_id]
-        : getStatusColor(task.status);
+    // Determine Border Color: node_color (from backend) -> node_id check -> default
+    const borderColor = task.node_color ||
+        ((task.node_id && nodeColors && nodeColors[task.node_id]) ? nodeColors[task.node_id] : 'var(--border-color)');
+
 
     return (
         <div className="glass-panel" style={{
@@ -80,7 +81,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, index, onUpdate, onEdi
                 {task.project_name && (
                     <span style={{
                         color: '#60a5fa',
-                        fontWeight: 'bold',
+                        fontWeight: 'normal',
                         flexShrink: 0,
                         background: 'rgba(96, 165, 250, 0.1)',
                         padding: '1px 6px',

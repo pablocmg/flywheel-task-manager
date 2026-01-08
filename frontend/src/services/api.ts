@@ -229,6 +229,20 @@ export const api = {
         if (!res.ok) throw new Error('Failed to delete task');
         return res.json();
     },
+    getTaskDependencies: async (id: string) => {
+        const res = await fetch(`${API_URL}/tasks/${id}/dependencies`);
+        if (!res.ok) throw new Error('Failed to fetch task dependencies');
+        return res.json();
+    },
+    updateTaskDependencies: async (id: string, dependencies: { depends_on: string[], enables: string[] }) => {
+        const res = await fetch(`${API_URL}/tasks/${id}/dependencies`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dependencies),
+        });
+        if (!res.ok) throw new Error('Failed to update task dependencies');
+        return res.json();
+    },
 
     // Interactions
     getInteractions: async () => {
