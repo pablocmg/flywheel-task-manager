@@ -60,6 +60,15 @@ export const api = {
         if (!res.ok) throw new Error('Failed to delete objective');
         return res.json();
     },
+    updateObjectiveOrder: async (id: string, order: number) => {
+        const res = await fetch(`${API_URL}/objectives/${id}/order`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ display_order: order }),
+        });
+        if (!res.ok) throw new Error('Failed to update objective order');
+        return res.json();
+    },
 
     // Objective Groups
     getObjectiveGroups: async (nodeId: string) => {
@@ -136,6 +145,15 @@ export const api = {
     deleteKeyResult: async (id: string) => {
         const res = await fetch(`${API_URL}/key-results/${id}`, { method: 'DELETE' });
         if (!res.ok) throw new Error('Failed to delete key result');
+        return res.json();
+    },
+    updateKeyResultOrder: async (id: string, order: number) => {
+        const res = await fetch(`${API_URL}/key-results/${id}/order`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ display_order: order }),
+        });
+        if (!res.ok) throw new Error('Failed to update key result order');
         return res.json();
     },
 

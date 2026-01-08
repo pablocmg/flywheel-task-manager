@@ -79,9 +79,16 @@ export const createObjective = async (req: Request, res: Response) => {
             }
         }
 
+        // Get max display_order for this group
+        const maxOrderResult = await db.query(
+            'SELECT COALESCE(MAX(display_order), -1) as max_order FROM objectives WHERE group_id = $1',
+            [group_id || null]
+        );
+        const nextOrder = maxOrderResult.rows[0].max_order + 1;
+
         const result = await db.query(
-            'INSERT INTO objectives (group_id, node_id, description) VALUES ($1, $2, $3) RETURNING *',
-            [group_id || null, finalNodeId, description]
+            'INSERT INTO objectives (group_id, node_id, description, display_order) VALUES ($1, $2, $3, $4) RETURNING *',
+            [group_id || null, finalNodeId, description, nextOrder]
         );
         res.status(201).json(result.rows[0]);
     } catch (error) {
@@ -118,6 +125,23 @@ export const deleteObjective = async (req: Request, res: Response) => {
         res.json({ message: 'Objective deleted successfully' });
     } catch (error) {
         console.error('Error deleting objective:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
+export const updateObjectiveOrder = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { display_order } = req.body;
+
+    try {
+        await db.query(
+            'UPDATE objectives SET display_order = $1 WHERE id = $2',
+            [display_order, id]
+        );
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error updating objective order:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 };

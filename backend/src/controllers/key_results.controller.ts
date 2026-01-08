@@ -4,7 +4,7 @@ import * as db from '../db';
 export const getKeyResultsByObjective = async (req: Request, res: Response) => {
     const { objectiveId } = req.params;
     try {
-        const result = await db.query('SELECT * FROM key_results WHERE objective_id = $1 ORDER BY created_at ASC', [objectiveId]);
+        const result = await db.query('SELECT * FROM key_results WHERE objective_id = $1 ORDER BY display_order ASC, created_at ASC', [objectiveId]);
         res.json(result.rows);
     } catch (error) {
         console.error('Error fetching key results:', error);
@@ -25,9 +25,16 @@ export const createKeyResult = async (req: Request, res: Response) => {
             return res.status(400).json({ error: 'Ya existe un resultado clave con ese nombre en este objetivo' });
         }
 
+        // Get max display_order for this objective
+        const maxOrderResult = await db.query(
+            'SELECT COALESCE(MAX(display_order), -1) as max_order FROM key_results WHERE objective_id = $1',
+            [objective_id]
+        );
+        const nextOrder = maxOrderResult.rows[0].max_order + 1;
+
         const result = await db.query(
-            'INSERT INTO key_results (objective_id, description, target_value, current_value) VALUES ($1, $2, $3, $4) RETURNING *',
-            [objective_id, description, target_value || 100, current_value || 0]
+            'INSERT INTO key_results (objective_id, description, target_value, current_value, display_order) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+            [objective_id, description, target_value || 100, current_value || 0, nextOrder]
         );
         res.status(201).json(result.rows[0]);
     } catch (error) {
@@ -64,6 +71,23 @@ export const deleteKeyResult = async (req: Request, res: Response) => {
         res.json({ message: 'Key result deleted successfully' });
     } catch (error) {
         console.error('Error deleting key result:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+};
+
+export const updateKeyResultOrder = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { display_order } = req.body;
+
+    try {
+        await db.query(
+            'UPDATE key_results SET display_order = $1 WHERE id = $2',
+            [display_order, id]
+        );
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error updating key result order:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 };

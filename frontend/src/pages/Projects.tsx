@@ -57,6 +57,8 @@ const Projects: React.FC = () => {
         objective_ids: [] as string[],
         target_date: ''
     });
+    const [isCreatingTask, setIsCreatingTask] = useState(false);
+    const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
 
     function getCurrentWeek() {
         const d = new Date();
@@ -173,6 +175,7 @@ const Projects: React.FC = () => {
             return;
         }
 
+        setIsCreatingTask(true);
         try {
             const taskData = {
                 title: newTask.title,
@@ -204,6 +207,8 @@ const Projects: React.FC = () => {
         } catch (err) {
             console.error('[handleCreateTask] Error saving task:', err);
             alert('Error al guardar la tarea: ' + (err as Error).message);
+        } finally {
+            setIsCreatingTask(false);
         }
     };
 
@@ -236,6 +241,7 @@ const Projects: React.FC = () => {
 
     const handleDeleteTask = async (taskId: string, projectId: string) => {
         console.log('[handleDeleteTask] Called with:', { taskId, projectId });
+        setDeletingTaskId(taskId);
         try {
             console.log('[handleDeleteTask] Calling api.deleteTask...');
             await api.deleteTask(taskId);
@@ -244,6 +250,8 @@ const Projects: React.FC = () => {
         } catch (err) {
             console.error('[handleDeleteTask] Error deleting task:', err);
             alert('Error al eliminar la tarea');
+        } finally {
+            setDeletingTaskId(null);
         }
     };
 
@@ -377,10 +385,31 @@ const Projects: React.FC = () => {
                                                             </button>
                                                             <button
                                                                 onClick={() => handleDeleteTask(task.id, project.id)}
-                                                                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                                                disabled={deletingTaskId === task.id}
+                                                                style={{
+                                                                    background: 'none',
+                                                                    border: 'none',
+                                                                    color: deletingTaskId === task.id ? 'rgba(239, 68, 68, 0.4)' : '#ef4444',
+                                                                    cursor: deletingTaskId === task.id ? 'not-allowed' : 'pointer',
+                                                                    padding: '4px',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center'
+                                                                }}
                                                                 title="Eliminar tarea"
                                                             >
-                                                                <Trash2 size={16} />
+                                                                {deletingTaskId === task.id ? (
+                                                                    <span className="spinner" style={{
+                                                                        width: '16px',
+                                                                        height: '16px',
+                                                                        border: '2px solid rgba(239, 68, 68, 0.3)',
+                                                                        borderTop: '2px solid #ef4444',
+                                                                        borderRadius: '50%',
+                                                                        animation: 'spin 1s linear infinite'
+                                                                    }}></span>
+                                                                ) : (
+                                                                    <Trash2 size={16} />
+                                                                )}
                                                             </button>
                                                         </div>
                                                     </div>
@@ -465,8 +494,40 @@ const Projects: React.FC = () => {
                                                         }}
                                                         style={{ width: '100%', marginBottom: '8px', padding: '8px', background: 'var(--bg-app)', border: '1px solid var(--border-color)', color: 'white', fontSize: '0.85rem', borderRadius: '4px' }}
                                                     />
-                                                    <button type="submit" style={{ width: '100%', marginTop: '8px', background: 'var(--primary)', color: 'white', border: 'none', padding: '10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}>
-                                                        {editingTask ? 'Actualizar Tarea' : 'Guardar Tarea'}
+                                                    <button
+                                                        type="submit"
+                                                        disabled={isCreatingTask}
+                                                        style={{
+                                                            width: '100%',
+                                                            marginTop: '8px',
+                                                            background: isCreatingTask ? 'var(--text-muted)' : 'var(--primary)',
+                                                            color: 'white',
+                                                            border: 'none',
+                                                            padding: '10px',
+                                                            borderRadius: '4px',
+                                                            cursor: isCreatingTask ? 'not-allowed' : 'pointer',
+                                                            fontSize: '0.85rem',
+                                                            fontWeight: 600,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            gap: '8px'
+                                                        }}
+                                                    >
+                                                        {isCreatingTask && (
+                                                            <span className="spinner" style={{
+                                                                width: '14px',
+                                                                height: '14px',
+                                                                border: '2px solid rgba(255,255,255,0.3)',
+                                                                borderTop: '2px solid white',
+                                                                borderRadius: '50%',
+                                                                animation: 'spin 1s linear infinite'
+                                                            }}></span>
+                                                        )}
+                                                        {isCreatingTask
+                                                            ? (editingTask ? 'Actualizando...' : 'Guardando...')
+                                                            : (editingTask ? 'Actualizar Tarea' : 'Guardar Tarea')
+                                                        }
                                                     </button>
                                                     <button type="button" onClick={() => { setCreatingTaskForProject(null); setEditingTask(null); setNewTask({ title: '', description: '', objective_ids: [], target_date: '' }); }} style={{ width: '100%', marginTop: '4px', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted)', padding: '8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>
                                                         Cancelar

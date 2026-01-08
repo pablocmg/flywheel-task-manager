@@ -13,13 +13,13 @@ export const getGroupsByNode = async (req: Request, res: Response) => {
                         'description', o.description,
                         'group_id', o.group_id,
                         'key_results', COALESCE(
-                            (SELECT json_agg(kr.* ORDER BY kr.created_at ASC)
+                            (SELECT json_agg(kr.* ORDER BY kr.display_order ASC, kr.created_at ASC)
                              FROM key_results kr
                              WHERE kr.objective_id = o.id),
                             '[]'
                         )
                     )
-                    ORDER BY o.created_at ASC
+                    ORDER BY o.display_order ASC, o.created_at ASC
                 )
                 FROM objectives o
                 WHERE o.group_id = og.id),
