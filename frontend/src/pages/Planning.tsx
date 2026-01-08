@@ -37,6 +37,7 @@ const Planning: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [objectiveGroups, setObjectiveGroups] = useState<ObjectiveGroup[]>([]);
+    const [allObjectiveGroups, setAllObjectiveGroups] = useState<ObjectiveGroup[]>([]);
 
     // Group management
     const [creatingGroup, setCreatingGroup] = useState(false);
@@ -66,6 +67,7 @@ const Planning: React.FC = () => {
     const [krError, setKrError] = useState<string | null>(null);
     const [editingKrId, setEditingKrId] = useState<string | null>(null);
     const [editingKrDesc, setEditingKrDesc] = useState('');
+    const [isCreatingKR, setIsCreatingKR] = useState(false);
 
     useEffect(() => {
         loadNodes();
@@ -86,6 +88,18 @@ const Planning: React.FC = () => {
             if (activeNodes.length > 0 && !selectedNodeId) {
                 setSelectedNodeId(activeNodes[0].id);
             }
+
+            // Load all objective groups for completion check
+            const allGroups: ObjectiveGroup[] = [];
+            for (const node of activeNodes) {
+                try {
+                    const groups = await api.getObjectiveGroups(node.id);
+                    allGroups.push(...groups);
+                } catch (err) {
+                    console.error(`Error loading groups for node ${node.id}:`, err);
+                }
+            }
+            setAllObjectiveGroups(allGroups);
         } catch (err) {
             console.error(err);
         }
@@ -97,6 +111,12 @@ const Planning: React.FC = () => {
         try {
             const groups = await api.getObjectiveGroups(selectedNodeId);
             setObjectiveGroups(groups);
+
+            // Update allObjectiveGroups for this node
+            setAllObjectiveGroups(prev => [
+                ...prev.filter(g => g.node_id !== selectedNodeId),
+                ...groups
+            ]);
         } catch (err) {
             console.error(err);
         }
@@ -250,6 +270,7 @@ const Planning: React.FC = () => {
         }
 
         setKrError(null);
+        setIsCreatingKR(true);
 
         try {
             await api.createKeyResult({ ...newKR, objective_id: objId });
@@ -259,6 +280,8 @@ const Planning: React.FC = () => {
         } catch (err: any) {
             console.error(err);
             alert(err.message || 'Error al crear el resultado clave');
+        } finally {
+            setIsCreatingKR(false);
         }
     };
 
@@ -273,6 +296,17 @@ const Planning: React.FC = () => {
             console.error(err);
             alert('Error al eliminar el resultado clave');
         }
+    };
+
+    // Helper to check if a node is complete
+    const isNodeComplete = (nodeId: string) => {
+        const nodeGroups = allObjectiveGroups.filter(g => g.node_id === nodeId);
+        if (nodeGroups.length === 0) return false;
+
+        return nodeGroups.some(group =>
+            group.objectives.length > 0 &&
+            group.objectives.some(obj => obj.key_results && obj.key_results.length > 0)
+        );
     };
 
     const selectedNode = nodes.find(n => n.id === selectedNodeId);
@@ -293,26 +327,31 @@ const Planning: React.FC = () => {
                         <div style={{ marginBottom: 'var(--space-lg)' }}>
                             <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Seleccionar Nodo:</label>
                             <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
-                                {nodes.map(node => (
-                                    <button
-                                        key={node.id}
-                                        onClick={() => setSelectedNodeId(node.id)}
-                                        style={{
-                                            padding: '10px 20px',
-                                            borderRadius: 'var(--radius-md)',
-                                            border: selectedNodeId === node.id ? `2px solid ${node.color}` : `1px solid ${node.color}`,
-                                            background: selectedNodeId === node.id ? `${node.color}33` : `${node.color}15`,
-                                            color: selectedNodeId === node.id ? 'white' : node.color,
-                                            cursor: 'pointer',
-                                            fontWeight: selectedNodeId === node.id ? 700 : 500,
-                                            transition: 'all 0.2s ease',
-                                            boxShadow: selectedNodeId === node.id ? `0 0 15px ${node.color}40` : 'none'
-                                        }}
-                                    >
-                                        {node.is_central && <span style={{ marginRight: '6px' }}>👑</span>}
-                                        {node.name}
-                                    </button>
-                                ))}
+                                {nodes.map(node => {
+                                    const isComplete = isNodeComplete(node.id);
+                                    return (
+                                        <button
+                                            key={node.id}
+                                            onClick={() => setSelectedNodeId(node.id)}
+                                            style={{
+                                                padding: '10px 20px',
+                                                borderRadius: 'var(--radius-md)',
+                                                border: selectedNodeId === node.id ? `2px solid ${node.color}` : `1px solid ${node.color}`,
+                                                background: selectedNodeId === node.id ? `${node.color}33` : `${node.color}15`,
+                                                color: selectedNodeId === node.id ? 'white' : node.color,
+                                                cursor: 'pointer',
+                                                fontWeight: selectedNodeId === node.id ? 700 : 500,
+                                                transition: 'all 0.2s ease',
+                                                boxShadow: selectedNodeId === node.id ? `0 0 15px ${node.color}40` : 'none',
+                                                opacity: isComplete ? 1 : 0.6
+                                            }}
+                                        >
+                                            {node.is_central && <span style={{ marginRight: '6px' }}>👑</span>}
+                                            {node.name}
+                                            {isComplete && <span style={{ marginLeft: '6px', fontSize: '0.85em' }}>✓</span>}
+                                        </button>
+                                    );
+                                })}
                             </div>
                             <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap', marginTop: '12px' }}>
                                 {selectedNodeId && objectiveGroups.length > 0 && (
@@ -632,16 +671,45 @@ const Planning: React.FC = () => {
                                                     <div style={{ marginTop: '8px' }}>
                                                         <div style={{ display: 'flex', gap: '8px' }}>
                                                             <input
+                                                                autoFocus
                                                                 placeholder="Nuevo KR"
                                                                 value={newKR.description}
                                                                 onChange={e => { setNewKR({ ...newKR, description: e.target.value }); setKrError(null); }}
+                                                                onKeyDown={e => {
+                                                                    if (e.key === 'Enter' && !isCreatingKR) {
+                                                                        handleAddKR(obj.id);
+                                                                    }
+                                                                }}
+                                                                disabled={isCreatingKR}
                                                                 style={{ flex: 1, padding: '4px 8px', background: 'var(--bg-app)', border: krError ? '1px solid #ef4444' : '1px solid var(--border-color)', color: 'white', fontSize: '0.8rem', borderRadius: '4px' }}
                                                             />
                                                             <button
                                                                 onClick={() => handleAddKR(obj.id)}
-                                                                style={{ padding: '4px 12px', background: 'var(--primary)', border: 'none', color: 'white', cursor: 'pointer', fontSize: '0.8rem', borderRadius: '4px' }}
+                                                                disabled={isCreatingKR}
+                                                                style={{
+                                                                    padding: '4px 12px',
+                                                                    background: isCreatingKR ? 'var(--text-muted)' : 'var(--primary)',
+                                                                    border: 'none',
+                                                                    color: 'white',
+                                                                    cursor: isCreatingKR ? 'not-allowed' : 'pointer',
+                                                                    fontSize: '0.8rem',
+                                                                    borderRadius: '4px',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '4px'
+                                                                }}
                                                             >
-                                                                OK
+                                                                {isCreatingKR && (
+                                                                    <span className="spinner" style={{
+                                                                        width: '12px',
+                                                                        height: '12px',
+                                                                        border: '2px solid rgba(255,255,255,0.3)',
+                                                                        borderTop: '2px solid white',
+                                                                        borderRadius: '50%',
+                                                                        animation: 'spin 1s linear infinite'
+                                                                    }}></span>
+                                                                )}
+                                                                {isCreatingKR ? 'Creando...' : 'OK'}
                                                             </button>
                                                         </div>
                                                         {krError && (
