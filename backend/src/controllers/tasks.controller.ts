@@ -181,9 +181,8 @@ export const updateTaskPriority = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { new_priority_score, reason } = req.body;
 
-    if (!reason) {
-        return res.status(400).json({ error: 'Reason for change is required for reprioritization.' });
-    }
+    // Reason optional for Drag and Drop
+    const logReason = reason || "Auto-Reprioritization (Drag & Drop)";
 
     try {
         await db.query('BEGIN');
@@ -198,7 +197,7 @@ export const updateTaskPriority = async (req: Request, res: Response) => {
         const user_id = null;
         await db.query(
             'INSERT INTO audit_logs (user_id, action, entity_type, entity_id, reason_for_change) VALUES ($1, $2, $3, $4, $5)',
-            [user_id, 'REPRIORITIZE', 'task', id, reason]
+            [user_id, 'REPRIORITIZE', 'task', id, logReason]
         );
 
         await db.query('COMMIT');

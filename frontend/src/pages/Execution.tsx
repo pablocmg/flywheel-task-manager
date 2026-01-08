@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../services/api';
 import { TaskCard } from '../components/TaskCard';
 import { TaskEditModal } from '../components/TaskEditModal';
-import { Calendar, AlertCircle } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import {
     DndContext,
     closestCorners,
@@ -64,12 +64,14 @@ function SortableTaskItem({
     task,
     nodeColors,
     onEdit,
-    swimlaneId
+    swimlaneId,
+    index
 }: {
     task: Task;
     nodeColors: Record<string, string>;
     onEdit: (t: Task) => void;
     swimlaneId?: string;
+    index?: number;
 }) {
     const itemId = swimlaneId ? `${swimlaneId}-${task.id}` : task.id;
     const {
@@ -89,7 +91,7 @@ function SortableTaskItem({
 
     return (
         <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-            <TaskCard task={task} onUpdate={() => { }} nodeColors={nodeColors} onEdit={onEdit} />
+            <TaskCard task={task} index={index} onUpdate={() => { }} nodeColors={nodeColors} onEdit={onEdit} />
         </div>
     );
 }
@@ -166,10 +168,11 @@ function SwimlaneRow({
                             items={swimlane.columns[col.id].map(t => `${swimlane.id}-${t.id}`)}
                             strategy={verticalListSortingStrategy}
                         >
-                            {swimlane.columns[col.id].map(task => (
+                            {swimlane.columns[col.id].map((task, idx) => (
                                 <SortableTaskItem
                                     key={`${swimlane.id}-${task.id}`}
                                     task={task}
+                                    index={idx}
                                     nodeColors={nodeColors}
                                     onEdit={onEdit}
                                     swimlaneId={swimlane.id}
@@ -188,41 +191,75 @@ function KanbanColumn({ id, title, tasks, nodeColors, onEdit }: { id: string; ti
     const { setNodeRef } = useSortable({ id: id, data: { type: 'Column', id } });
 
     return (
-        <div
-            ref={setNodeRef}
-            style={{
-                background: 'var(--glass-bg)',
-                border: '1px solid var(--glass-border)',
-                borderRadius: '8px',
-                width: '300px',
-                minWidth: '300px',
-                display: 'flex',
-                flexDirection: 'column',
-                height: '100%',
-                maxHeight: 'calc(100vh - 200px)',
-            }}
-        >
-            <div style={{
-                padding: 'var(--space-md)',
-                borderBottom: '1px solid var(--glass-border)',
-                fontWeight: 'bold',
-                color: 'var(--primary)',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-            }}>
-                {title}
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '12px' }}>
-                    {tasks.length}
-                </span>
-            </div>
+        <div style={{ display: 'flex', gap: '8px', height: '100%', maxHeight: 'calc(100vh - 200px)' }}>
+            {/* Priority Indicator - Only show on first column */}
+            {id === 'Backlog' && (
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px',
+                    paddingRight: '8px',
+                    color: 'rgba(255,255,255,0.3)',
+                    fontSize: '0.7rem',
+                    fontWeight: '600',
+                    letterSpacing: '2px',
+                    textTransform: 'uppercase'
+                }}>
+                    <div style={{
+                        fontSize: '1.5rem',
+                        color: 'rgba(255,255,255,0.4)',
+                        lineHeight: 1
+                    }}>↑</div>
+                    <div style={{
+                        width: '2px',
+                        height: '60px',
+                        background: 'linear-gradient(to bottom, rgba(255,255,255,0.3), rgba(255,255,255,0.1))',
+                        borderRadius: '1px'
+                    }}></div>
+                    <div style={{
+                        writingMode: 'vertical-rl',
+                        transform: 'rotate(180deg)'
+                    }}>Prioridad</div>
+                </div>
+            )}
 
-            <div style={{ flex: 1, padding: '8px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-                    {tasks.map(task => (
-                        <SortableTaskItem key={task.id} task={task} nodeColors={nodeColors} onEdit={onEdit} />
-                    ))}
-                </SortableContext>
+            <div
+                ref={setNodeRef}
+                style={{
+                    background: 'var(--glass-bg)',
+                    border: '1px solid var(--glass-border)',
+                    borderRadius: '8px',
+                    width: '300px',
+                    minWidth: '300px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: '100%',
+                }}
+            >
+                <div style={{
+                    padding: 'var(--space-md)',
+                    borderBottom: '1px solid var(--glass-border)',
+                    fontWeight: 'bold',
+                    color: 'var(--primary)',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                }}>
+                    {title}
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '12px' }}>
+                        {tasks.length}
+                    </span>
+                </div>
+
+                <div style={{ flex: 1, padding: '8px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                        {tasks.map((task, idx) => (
+                            <SortableTaskItem key={task.id} task={task} index={idx} nodeColors={nodeColors} onEdit={onEdit} />
+                        ))}
+                    </SortableContext>
+                </div>
             </div>
         </div>
     );
@@ -237,10 +274,6 @@ const Execution: React.FC = () => {
     const [editingTask, setEditingTask] = useState<Task | null>(null);
     const [swimlaneMode, setSwimlaneMode] = useState<SwimlaneMode>('none');
 
-    // Reprioritization State
-    const [showReprioritizeModal, setShowReprioritizeModal] = useState(false);
-    const [reason, setReason] = useState('');
-    const [reorderParams, setReorderParams] = useState<{ taskId: string, newIndex: number, columnId: string } | null>(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -445,29 +478,69 @@ const Execution: React.FC = () => {
                 const targetIndex = currentColumnTasks.findIndex(t => t.id === targetTaskId);
 
                 if (oldIndex !== targetIndex && oldIndex !== -1 && targetIndex !== -1) {
-                    // Trigger Reorder Modal
-                    setReorderParams({ taskId: actualTaskId, newIndex: targetIndex, columnId: newStatus });
-                    setShowReprioritizeModal(true);
+                    // Logic to calculate new priority
+                    // We need the array of tasks in the *destination* state (after move).
+                    // Or we can infer from current state:
+                    // If moving down (old < target), we want to be *below* target.
+                    // If moving up (old > target), we want to be *above* target.
+
+                    // Actually, let's look at the neighbors in the *sorted* list.
+                    // dnd-kit gives us the `over` element. 
+                    // If we drop OVER a task, it usually inserts BEFORE it in sortable context?
+                    // Let's rely on standard reorder logic: 
+                    // We need to find the new neighbors.
+
+                    // Let's create a temp array of the tasks in that column to simulate the move.
+                    const taskList = [...currentColumnTasks];
+                    const [movedItem] = taskList.splice(oldIndex, 1);
+                    taskList.splice(targetIndex, 0, movedItem);
+
+                    // Now `taskList` has the new order. Find neighbors of `movedItem`.
+                    const newIndex = targetIndex; // It's at targetIndex now.
+
+                    const prevTask = newIndex > 0 ? taskList[newIndex - 1] : null;
+                    const nextTask = newIndex < taskList.length - 1 ? taskList[newIndex + 1] : null;
+
+                    let newScore = 0;
+
+                    if (!prevTask && !nextTask) {
+                        // Only item? Keep same or default?
+                        newScore = activeTask.priority_score;
+                    } else if (!prevTask && nextTask) {
+                        // At top
+                        newScore = nextTask.priority_score + 10;
+                    } else if (prevTask && !nextTask) {
+                        // At bottom
+                        newScore = prevTask.priority_score - 10;
+                    } else if (prevTask && nextTask) {
+                        // In between
+                        newScore = (prevTask.priority_score + nextTask.priority_score) / 2;
+                    }
+
+                    console.log(`Auto Reprioritize: ${activeTask.title} -> New Score: ${newScore}`);
+
+                    // Optimistic Update
+                    setTasks(prev => prev.map(t =>
+                        t.id === actualTaskId ? { ...t, priority_score: newScore } : t
+                    ).sort((a, b) => b.priority_score - a.priority_score)); // Re-sort to reflect change visually? 
+                    // Note: Sorting might make it jump if we don't handle it carefully, but it's correct data-wise.
+
+                    // Call API
+                    api.updateTaskPriority(actualTaskId, newScore, "Auto-Drag-Drop")
+                        .then(() => {
+                            // Maybe silent success or toast
+                        })
+                        .catch(err => {
+                            console.error("Failed to update priority", err);
+                            handleUpdate(); // Revert on error
+                        });
                 }
             }
         }
     };
 
     const confirmReprioritization = async () => {
-        if (!reorderParams || !reason) return;
-
-        try {
-            const task = tasks.find(t => t.id === reorderParams.taskId);
-            await api.updateTaskPriority(reorderParams.taskId, task?.priority_score || 0, reason);
-
-            setShowReprioritizeModal(false);
-            setReason('');
-            setReorderParams(null);
-            handleUpdate(); // Refresh from server to restore sort order (since we didn't really change score comfortably)
-            alert('Cambio de prioridad registrado. (Nota: El reordenamiento manual exacto requiere ajuste de puntajes en backend, por ahora se ha registrado el evento).');
-        } catch (e) {
-            console.error(e);
-        }
+        // Deprecated Modal Logic
     };
 
     const dropAnimation: DropAnimation = {
@@ -494,7 +567,7 @@ const Execution: React.FC = () => {
                     <h1 className="title-gradient" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
                         <Calendar /> Tablero de Ejecución
                     </h1>
-                    <p className="text-muted">Gestión visual de tareas. Arrastra para cambiar estado o repriorizar (requiere motivo).</p>
+                    <p className="text-muted">Gestión visual de tareas. Arrastra para cambiar estado o repriorizar.</p>
                 </div>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     {/* Swimlane Mode Toggle */}
@@ -627,32 +700,6 @@ const Execution: React.FC = () => {
                 onUpdate={handleUpdate}
                 projects={allProjects}
             />
-
-            {showReprioritizeModal && (
-                <div className="modal-overlay" style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    background: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
-                }}>
-                    <div className="glass-panel" style={{ width: '400px', padding: 'var(--space-lg)', background: 'var(--bg-panel)' }}>
-                        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
-                            <AlertCircle size={20} color="var(--warning)" />
-                            Registro de Repriorización
-                        </h3>
-                        <p>Estás cambiando el orden de prioridad. Por favor indica el motivo.</p>
-                        <textarea
-                            value={reason}
-                            onChange={e => setReason(e.target.value)}
-                            placeholder="Motivo del cambio..."
-                            style={{ width: '100%', height: '80px', margin: '10px 0', background: 'var(--bg-app)', color: 'white', border: '1px solid var(--text-muted)' }}
-                            autoFocus
-                        />
-                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                            <button onClick={() => { setShowReprioritizeModal(false); setReorderParams(null); }} style={{ background: 'transparent', border: '1px solid var(--text-muted)', color: 'var(--text-secondary)', padding: '8px 16px', cursor: 'pointer' }}>Cancelar</button>
-                            <button onClick={confirmReprioritization} disabled={!reason} style={{ background: reason ? 'var(--primary)' : 'gray', color: 'white', border: 'none', padding: '8px 16px', cursor: 'pointer' }}>Confirmar</button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

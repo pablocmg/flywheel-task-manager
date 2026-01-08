@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
-import { api } from '../services/api';
-import { Circle, Clock, ExternalLink, Upload, FileText } from 'lucide-react';
+import React from 'react';
+import { Circle, Clock, ExternalLink } from 'lucide-react';
+// remove api import? It is not used anymore?
+// Yes, check if any other logic uses api.
+// Only handleStatusChange used api. So I can remove it.
 
 interface Task {
     id: string;
@@ -13,47 +15,20 @@ interface Task {
     objective_title?: string;
     impacted_node_count?: number;
     impacted_nodes?: string[]; // Array of Node IDs
+    node_id?: string; // Added for node color
     project_name?: string;
     week_number?: number;
 }
 
 interface TaskCardProps {
     task: Task;
+    index?: number; // Rank index
     onUpdate: () => void;
     onEdit?: (task: Task) => void;
     nodeColors?: Record<string, string>; // Map ID -> Color
 }
 
-export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onEdit, nodeColors }) => {
-    const [loading, setLoading] = useState(false);
-    const [evidenceUrl, setEvidenceUrl] = useState(task.evidence_url || '');
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
-
-    const handleStatusChange = async (newStatus: string) => {
-        // User Story 3.1: Block closure if no evidence (Url or File)
-        if (newStatus === 'Done' && !evidenceUrl && !selectedFile) {
-            alert('Por favor proporciona evidencia (URL o Archivo) para marcar como Hecho.');
-            return;
-        }
-
-        setLoading(true);
-        try {
-            // If file is selected, pass that. If not, pass URL string.
-            const evidence = selectedFile ? selectedFile : evidenceUrl;
-            await api.updateTaskStatus(task.id, newStatus, evidence);
-            onUpdate();
-        } catch (err) {
-            console.error(err);
-            alert('Error al actualizar la tarea');
-        }
-        setLoading(false);
-    };
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            setSelectedFile(e.target.files[0]);
-        }
-    };
+export const TaskCard: React.FC<TaskCardProps> = ({ task, index, onUpdate, onEdit, nodeColors }) => {
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -65,52 +40,69 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onEdit, node
         }
     };
 
+    // Determine Border Color: Priority Node Color -> Status Color
+    const borderColor = (task.node_id && nodeColors && nodeColors[task.node_id])
+        ? nodeColors[task.node_id]
+        : getStatusColor(task.status);
+
     return (
         <div className="glass-panel" style={{
-            marginBottom: 'var(--space-md)',
-            padding: 'var(--space-md)',
-            borderLeft: `4px solid ${getStatusColor(task.status)}`,
+            marginBottom: '8px',
+            padding: '10px 12px',
+            borderLeft: `4px solid ${borderColor}`,
             display: 'flex',
             flexDirection: 'column',
-            gap: 'var(--space-sm)'
+            gap: '6px',
+            position: 'relative' // For absolute positioning if needed, or stick to flex
         }}>
-            {/* Objective Breadcrumb */}
-            {task.objective_title && (
-                <div style={{
-                    fontSize: '0.75rem',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    color: 'var(--text-muted)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                }}>
-                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--text-muted)' }}></span>
-                    {task.objective_title}
-                    {task.project_name && (
+
+            {/* Objective Breadcrumb & Project Name */}
+            <div style={{
+                fontSize: '0.70rem',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+                color: 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '6px',
+                width: '100%'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                    {task.objective_title && (
                         <>
-                            <span style={{ margin: '0 4px' }}>•</span>
-                            <span style={{ color: '#60a5fa', fontWeight: 'bold' }}>{task.project_name}</span>
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--text-muted)', flexShrink: 0 }}></span>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{task.objective_title}</span>
                         </>
                     )}
                 </div>
-            )}
+
+                {task.project_name && (
+                    <span style={{
+                        color: '#60a5fa',
+                        fontWeight: 'bold',
+                        flexShrink: 0,
+                        background: 'rgba(96, 165, 250, 0.1)',
+                        padding: '1px 6px',
+                        borderRadius: '4px'
+                    }}>
+                        {task.project_name.substring(0, 8)}{task.project_name.length > 8 ? '.' : ''}
+                    </span>
+                )}
+            </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div>
-                    <h3 style={{ margin: '0 0 4px 0', fontSize: '1.1rem' }}>{task.title}</h3>
-                    <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{task.description}</p>
+                <div style={{ flex: 1 }}>
+                    <h3 style={{ margin: '0 0 2px 0', fontSize: '0.95rem', lineHeight: '1.2', fontWeight: 500 }}>{task.title}</h3>
+                    {task.description && <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.8rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '300px' }}>{task.description}</p>}
                 </div>
                 <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '1.2rem', color: 'var(--primary-light)' }}>
-                        {Number(task.priority_score || 0).toFixed(1)}
-                    </div>
                     {onEdit && (
                         <button
                             onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(task); }}
                             className="btn-icon"
                             style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '4px', padding: '4px', cursor: 'pointer', color: 'var(--primary-light)' }}
-                            title="Editar Atributos"
+                            title="Ver Detalle Completo"
                         >
                             ✏️
                         </button>
@@ -120,28 +112,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onEdit, node
 
             {/* Badges & Controls */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', marginTop: 'var(--space-sm)', flexWrap: 'wrap' }}>
-                <select
-                    value={task.status}
-                    onChange={(e) => handleStatusChange(e.target.value)}
-                    disabled={loading}
-                    style={{
-                        background: 'var(--bg-card)',
-                        color: 'white',
-                        border: '1px solid var(--glass-border)',
-                        padding: '4px 8px',
-                        borderRadius: '4px',
-                        fontSize: '0.9rem'
-                    }}
-                >
-                    <option value="Backlog">Backlog</option>
-                    <option value="Todo">Pendiente</option>
-                    <option value="Doing">En Progreso</option>
-                    <option value="Waiting">Esperando</option>
-                    <option value="Done">Hecho</option>
-                </select>
-
                 {/* Visual Indicators */}
-                <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     {/* Dependency Badge */}
                     {task.impacted_node_count && task.impacted_node_count > 0 ? (
                         <div title={`${task.impacted_node_count} dependencias aguas abajo`} style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--node-amber)', fontSize: '0.8rem' }}>
@@ -167,52 +139,19 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdate, onEdit, node
                             ))}
                         </div>
                     )}
+
+                    {/* Evidence Link (Read Only) */}
+                    {task.evidence_url && (
+                        <a href={task.evidence_url} target="_blank" rel="noreferrer" style={{ color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }} title="Ver Evidencia">
+                            <ExternalLink size={14} /> Evidencia
+                        </a>
+                    )}
                 </div>
-
-                {task.status === 'Done' || task.status === 'Doing' ? (
-                    <div style={{ flex: 1, display: 'flex', gap: '8px', alignItems: 'center', minWidth: '300px', marginLeft: 'auto' }}>
-                        {/* URL Input */}
-                        <input
-                            placeholder="URL de evidencia..."
-                            value={evidenceUrl}
-                            onChange={(e) => setEvidenceUrl(e.target.value)}
-                            disabled={!!selectedFile}
-                            style={{
-                                flex: 1,
-                                background: 'rgba(255,255,255,0.05)',
-                                border: 'none',
-                                borderBottom: '1px solid var(--text-muted)',
-                                color: 'white',
-                                padding: '4px',
-                                fontSize: '0.9rem'
-                            }}
-                        />
-
-                        {/* File Upload */}
-                        <label className="btn-icon" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Upload size={16} />
-                            <input type="file" onChange={handleFileChange} style={{ display: 'none' }} />
-                        </label>
-
-                        {selectedFile && (
-                            <span style={{ fontSize: '0.8rem', color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <FileText size={14} /> {selectedFile.name}
-                                <button onClick={() => setSelectedFile(null)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer' }}>×</button>
-                            </span>
-                        )}
-
-                        {task.evidence_url && !selectedFile && (
-                            <a href={task.evidence_url} target="_blank" rel="noreferrer" style={{ color: 'var(--primary-light)' }}>
-                                <ExternalLink size={16} />
-                            </a>
-                        )}
-                    </div>
-                ) : <div style={{ flex: 1 }}></div>}
             </div>
 
             {task.status === 'Waiting' && (
                 <div style={{ fontSize: '0.85rem', color: 'var(--state-warning)', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Clock size={14} /> Esperando dependencias de otros nodos.
+                    <Clock size={14} /> Esperando dependencias...
                 </div>
             )}
         </div>
