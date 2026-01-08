@@ -29,6 +29,7 @@ interface Node {
     id: string;
     name: string;
     color: string;
+    is_central?: boolean;
 }
 
 const Planning: React.FC = () => {
@@ -308,6 +309,7 @@ const Planning: React.FC = () => {
                                             boxShadow: selectedNodeId === node.id ? `0 0 15px ${node.color}40` : 'none'
                                         }}
                                     >
+                                        {node.is_central && <span style={{ marginRight: '6px' }}>👑</span>}
                                         {node.name}
                                     </button>
                                 ))}
@@ -379,7 +381,11 @@ const Planning: React.FC = () => {
                         <div>
                             {/* Objective Groups */}
                             {objectiveGroups.map(group => (
-                                <div key={group.id} className="glass-panel" style={{ padding: 'var(--space-md)', marginBottom: 'var(--space-lg)', borderLeft: `4px solid ${selectedNode.color}` }}>
+                                <div key={group.id} className="glass-panel" style={{
+                                    padding: 'var(--space-md)',
+                                    marginBottom: 'var(--space-lg)',
+                                    borderLeft: `4px solid ${group.objectives.length === 0 ? 'rgba(255,255,255,0.1)' : selectedNode.color}`
+                                }}>
                                     {/* Group Header */}
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--space-md)' }}>
                                         <div style={{ flex: 1 }}>
@@ -401,7 +407,17 @@ const Planning: React.FC = () => {
                                             ) : (
                                                 <h2
                                                     onClick={() => { setEditingGroupAliasId(group.id); setEditingGroupAlias(group.alias); }}
-                                                    style={{ margin: 0, cursor: 'pointer', fontSize: '1.1rem', fontWeight: 600, wordWrap: 'break-word', overflowWrap: 'break-word', lineHeight: '1.4' }}
+                                                    style={{
+                                                        margin: 0,
+                                                        cursor: 'pointer',
+                                                        fontSize: '1.1rem',
+                                                        fontWeight: 600,
+                                                        wordWrap: 'break-word',
+                                                        overflowWrap: 'break-word',
+                                                        lineHeight: '1.4',
+                                                        opacity: group.objectives.length === 0 ? 0.4 : 1,
+                                                        color: group.objectives.length === 0 ? 'var(--text-muted)' : 'white'
+                                                    }}
                                                 >
                                                     {group.alias}
                                                 </h2>
@@ -473,26 +489,19 @@ const Planning: React.FC = () => {
                                                         const dateStr = group.target_date ? group.target_date.split('T')[0] : '';
                                                         setEditingGroupDate(dateStr);
                                                     }}
-                                                    style={{ fontSize: '0.85rem', color: 'var(--primary)', marginTop: '4px', cursor: 'pointer' }}
+                                                    style={{
+                                                        fontSize: '0.85rem',
+                                                        color: group.objectives.length === 0 ? 'var(--text-muted)' : 'var(--primary)',
+                                                        marginTop: '4px',
+                                                        cursor: 'pointer',
+                                                        opacity: group.objectives.length === 0 ? 0.4 : 1
+                                                    }}
                                                 >
                                                     🎯 Fecha objetivo: {group.target_date ? new Date(group.target_date).toLocaleDateString() : 'Sin fecha'}
                                                 </div>
                                             )}
                                         </div>
                                         <div style={{ display: 'flex', gap: '8px' }}>
-                                            <button
-                                                onClick={() => setCreatingObjectiveForGroup(group.id)}
-                                                style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid var(--primary)', color: 'var(--primary)', borderRadius: '4px', padding: '6px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', fontSize: '0.85rem', fontWeight: 600 }}
-                                            >
-                                                <Plus size={16} style={{ marginRight: '4px' }} /> Objetivo
-                                            </button>
-                                            <button
-                                                onClick={() => setConfirmReplicateGroup(group)}
-                                                style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid #3b82f6', color: '#3b82f6', borderRadius: '4px', padding: '6px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                                                title="Replicar periodo a todos los nodos"
-                                            >
-                                                <Copy size={16} />
-                                            </button>
                                             <button
                                                 onClick={() => setConfirmDeleteGroup(group)}
                                                 style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', color: '#ef4444', borderRadius: '4px', padding: '6px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
@@ -647,8 +656,80 @@ const Planning: React.FC = () => {
                                     ))}
 
                                     {group.objectives.length === 0 && !creatingObjectiveForGroup && (
-                                        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: 'var(--space-md) 0' }}>
-                                            Sin objetivos. Haz clic en "+ Objetivo" para agregar uno.
+                                        <div style={{
+                                            padding: '8px 12px',
+                                            textAlign: 'center',
+                                            opacity: 0.4,
+                                            background: 'rgba(0,0,0,0.15)',
+                                            borderRadius: '4px',
+                                            border: '1px dashed rgba(255,255,255,0.08)'
+                                        }}>
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                                                Sin objetivos
+                                            </div>
+                                            <button
+                                                onClick={() => setCreatingObjectiveForGroup(group.id)}
+                                                style={{
+                                                    padding: '6px 12px',
+                                                    background: 'transparent',
+                                                    border: `1px dashed ${selectedNode.color}40`,
+                                                    color: `${selectedNode.color}80`,
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: 500,
+                                                    transition: 'all 0.2s ease'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.currentTarget.style.background = `${selectedNode.color}15`;
+                                                    e.currentTarget.style.borderColor = `${selectedNode.color}60`;
+                                                    e.currentTarget.style.color = selectedNode.color;
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.background = 'transparent';
+                                                    e.currentTarget.style.borderColor = `${selectedNode.color}40`;
+                                                    e.currentTarget.style.color = `${selectedNode.color}80`;
+                                                }}
+                                            >
+                                                + Crear objetivo
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Add objective button for populated periods */}
+                                    {group.objectives.length > 0 && !creatingObjectiveForGroup && (
+                                        <div style={{
+                                            padding: '8px 12px',
+                                            textAlign: 'center',
+                                            marginTop: 'var(--space-sm)'
+                                        }}>
+                                            <button
+                                                onClick={() => setCreatingObjectiveForGroup(group.id)}
+                                                style={{
+                                                    padding: '6px 12px',
+                                                    background: 'transparent',
+                                                    border: `1px dashed ${selectedNode.color}40`,
+                                                    color: `${selectedNode.color}80`,
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: 500,
+                                                    transition: 'all 0.2s ease',
+                                                    width: '100%'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.currentTarget.style.background = `${selectedNode.color}15`;
+                                                    e.currentTarget.style.borderColor = `${selectedNode.color}60`;
+                                                    e.currentTarget.style.color = selectedNode.color;
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.background = 'transparent';
+                                                    e.currentTarget.style.borderColor = `${selectedNode.color}40`;
+                                                    e.currentTarget.style.color = `${selectedNode.color}80`;
+                                                }}
+                                            >
+                                                + Crear objetivo
+                                            </button>
                                         </div>
                                     )}
                                 </div>

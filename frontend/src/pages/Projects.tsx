@@ -54,7 +54,7 @@ const Projects: React.FC = () => {
     const [newTask, setNewTask] = useState({
         title: '',
         description: '',
-        objective_id: '',
+        objective_ids: [] as string[],
         target_date: ''
     });
 
@@ -129,15 +129,19 @@ const Projects: React.FC = () => {
 
     const handleSaveProject = async (projectData: { name: string; description: string; objective_ids: string[]; target_date: string }) => {
         try {
+            console.log('[handleSaveProject] Saving project with data:', projectData);
             if (editingProject) {
                 await api.updateProject(editingProject.id, projectData);
+                console.log('[handleSaveProject] Project updated successfully');
             } else {
-                await api.createProject(projectData);
+                const result = await api.createProject(projectData);
+                console.log('[handleSaveProject] Project created successfully:', result);
             }
             setEditingProject(null);
             loadData();
         } catch (err) {
-            console.error('Error saving project:', err);
+            console.error('[handleSaveProject] Error saving project:', err);
+            throw err; // Re-throw so the modal can handle it
         }
     };
 
@@ -163,9 +167,9 @@ const Projects: React.FC = () => {
             alert('Debes ingresar un título para la tarea');
             return;
         }
-        if (!newTask.objective_id) {
-            console.log('[handleCreateTask] No objective selected');
-            alert('Debes seleccionar un objetivo asociado para esta tarea');
+        if (!newTask.objective_ids || newTask.objective_ids.length === 0) {
+            console.log('[handleCreateTask] No objectives selected');
+            alert('Debes seleccionar al menos un objetivo asociado para esta tarea');
             return;
         }
 
@@ -173,7 +177,7 @@ const Projects: React.FC = () => {
             const taskData = {
                 title: newTask.title,
                 description: newTask.description,
-                objective_id: newTask.objective_id,
+                objective_id: newTask.objective_ids[0], // Primary objective is the first one
                 project_id: projectId,
                 target_date: newTask.target_date || null,
                 assignee_id: null,
@@ -193,7 +197,7 @@ const Projects: React.FC = () => {
                 alert('¡Tarea creada con éxito!');
             }
 
-            setNewTask({ title: '', description: '', objective_id: '', target_date: '' });
+            setNewTask({ title: '', description: '', objective_ids: [], target_date: '' });
             setEditingTask(null);
             setCreatingTaskForProject(null);
             loadProjectTasks(projectId);
@@ -363,7 +367,7 @@ const Projects: React.FC = () => {
                                                             <button
                                                                 onClick={() => {
                                                                     setEditingTask(task);
-                                                                    setNewTask({ title: task.title, description: task.description, objective_id: task.objective_id || '', target_date: task.target_date || '' });
+                                                                    setNewTask({ title: task.title, description: task.description, objective_ids: task.objective_id ? [task.objective_id] : [], target_date: task.target_date || '' });
                                                                     setCreatingTaskForProject(project.id);
                                                                 }}
                                                                 style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -407,18 +411,46 @@ const Projects: React.FC = () => {
                                                         onChange={e => setNewTask({ ...newTask, description: e.target.value })}
                                                         style={{ width: '100%', marginBottom: '8px', padding: '8px', background: 'var(--bg-app)', border: '1px solid var(--border-color)', color: 'white', fontSize: '0.85rem', borderRadius: '4px' }}
                                                     />
-                                                    <select
-                                                        value={newTask.objective_id}
-                                                        onChange={e => setNewTask({ ...newTask, objective_id: e.target.value })}
-                                                        style={{ width: '100%', marginBottom: '8px', padding: '8px', background: 'var(--bg-app)', border: '1px solid var(--border-color)', color: 'white', fontSize: '0.85rem', borderRadius: '4px' }}
-                                                    >
-                                                        <option value="">Seleccionar Objetivo *</option>
-                                                        {getProjectObjectives(project.id).map(obj => (
-                                                            <option key={obj.id} value={obj.id}>
-                                                                {obj.type === 'annual' ? '🎯 ' : ''}{obj.description} {obj.quarter && `(${obj.quarter})`}
-                                                            </option>
-                                                        ))}
-                                                    </select>
+                                                    <div style={{ marginBottom: '8px' }}>
+                                                        <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.85rem', fontWeight: 600 }}>Objetivos Vinculados *</label>
+                                                        <div style={{ maxHeight: '150px', overflow: 'auto', padding: '8px', background: 'rgba(0,0,0,0.2)', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+                                                            {nodes.map(node => {
+                                                                const projectObjectives = getProjectObjectives(project.id);
+                                                                const nodeObjectives = projectObjectives.filter(obj => {
+                                                                    // Find which node this objective belongs to
+                                                                    return node.objectiveGroups?.some(group =>
+                                                                        group.objectives?.some(o => o.id === obj.id)
+                                                                    );
+                                                                });
+
+                                                                if (nodeObjectives.length === 0) return null;
+
+                                                                return (
+                                                                    <div key={node.id} style={{ marginBottom: '8px' }}>
+                                                                        <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: node.color, marginBottom: '4px' }}>{node.name}</div>
+                                                                        {nodeObjectives.map(obj => (
+                                                                            <label key={obj.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '2px 0', cursor: 'pointer', fontSize: '0.8rem', marginLeft: '8px' }}>
+                                                                                <input
+                                                                                    type="checkbox"
+                                                                                    checked={newTask.objective_ids.includes(obj.id)}
+                                                                                    onChange={e => {
+                                                                                        const ids = e.target.checked
+                                                                                            ? [...newTask.objective_ids, obj.id]
+                                                                                            : newTask.objective_ids.filter(id => id !== obj.id);
+                                                                                        setNewTask({ ...newTask, objective_ids: ids });
+                                                                                    }}
+                                                                                />
+                                                                                <span style={{ color: project.objective_ids?.includes(obj.id) ? '#60a5fa' : 'white' }}>
+                                                                                    {obj.type === 'annual' ? '🎯 ' : ''}{obj.description} {obj.quarter && `(${obj.quarter})`}
+                                                                                    {project.objective_ids?.includes(obj.id) && <span style={{ marginLeft: '4px', fontSize: '0.7rem', opacity: 0.7 }}>(del proyecto)</span>}
+                                                                                </span>
+                                                                            </label>
+                                                                        ))}
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
                                                     <input
                                                         type="date"
                                                         placeholder="Fecha fin"
@@ -436,7 +468,7 @@ const Projects: React.FC = () => {
                                                     <button type="submit" style={{ width: '100%', marginTop: '8px', background: 'var(--primary)', color: 'white', border: 'none', padding: '10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}>
                                                         {editingTask ? 'Actualizar Tarea' : 'Guardar Tarea'}
                                                     </button>
-                                                    <button type="button" onClick={() => { setCreatingTaskForProject(null); setEditingTask(null); setNewTask({ title: '', description: '', objective_id: '', target_date: '' }); }} style={{ width: '100%', marginTop: '4px', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted)', padding: '8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                                                    <button type="button" onClick={() => { setCreatingTaskForProject(null); setEditingTask(null); setNewTask({ title: '', description: '', objective_ids: [], target_date: '' }); }} style={{ width: '100%', marginTop: '4px', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted)', padding: '8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>
                                                         Cancelar
                                                     </button>
                                                 </form>
@@ -445,7 +477,8 @@ const Projects: React.FC = () => {
                                             <button
                                                 onClick={() => {
                                                     setEditingTask(null);
-                                                    setNewTask({ title: '', description: '', objective_id: '', target_date: '' });
+                                                    // Pre-select project objectives
+                                                    setNewTask({ title: '', description: '', objective_ids: project.objective_ids || [], target_date: '' });
                                                     setCreatingTaskForProject(project.id);
                                                 }}
                                                 style={{ background: 'none', border: '1px dashed var(--border-color)', color: 'var(--primary)', cursor: 'pointer', padding: '8px', borderRadius: '4px', width: '100%', fontSize: '0.85rem' }}

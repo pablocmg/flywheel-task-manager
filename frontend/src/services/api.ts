@@ -245,13 +245,21 @@ export const api = {
         return res.json();
     },
     createProject: async (data: any) => {
+        console.log('[api.createProject] Sending data:', data);
         const res = await fetch(`${API_URL}/projects`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
         });
-        if (!res.ok) throw new Error('Failed to create project');
-        return res.json();
+        console.log('[api.createProject] Response status:', res.status);
+        if (!res.ok) {
+            const errorText = await res.text();
+            console.error('[api.createProject] Error response:', errorText);
+            throw new Error(`Failed to create project: ${errorText}`);
+        }
+        const result = await res.json();
+        console.log('[api.createProject] Success result:', result);
+        return result;
     },
     updateProject: async (id: string, data: any) => {
         const res = await fetch(`${API_URL}/projects/${id}`, {
