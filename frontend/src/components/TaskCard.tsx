@@ -93,7 +93,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, index, onUpdate, onEdi
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1 }}>
-                    <h3 style={{ margin: '0 0 2px 0', fontSize: '0.95rem', lineHeight: '1.2', fontWeight: 500 }}>{task.title}</h3>
+                    <h3 style={{ margin: '0 0 2px 0', fontSize: '0.95rem', lineHeight: '1.2', fontWeight: 100 }}>{task.title}</h3>
                     {task.description && <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.8rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '300px' }}>{task.description}</p>}
                 </div>
                 <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>

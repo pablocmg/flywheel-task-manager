@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../services/api';
 import { TaskCard } from '../components/TaskCard';
 import { TaskEditModal } from '../components/TaskEditModal';
-import { Calendar } from 'lucide-react';
+import { Calendar, Plus, X } from 'lucide-react';
 import {
     DndContext,
     closestCorners,
@@ -274,6 +274,17 @@ const Execution: React.FC = () => {
     const [editingTask, setEditingTask] = useState<Task | null>(null);
     const [swimlaneMode, setSwimlaneMode] = useState<SwimlaneMode>('none');
 
+    // Task creation state
+    const [showCreateTask, setShowCreateTask] = useState(false);
+    const [newTask, setNewTask] = useState({
+        title: '',
+        description: '',
+        objective_id: '',
+        status: 'Backlog'
+    });
+    const [objectives, setObjectives] = useState<any[]>([]);
+    const [isCreatingTask, setIsCreatingTask] = useState(false);
+
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -291,10 +302,41 @@ const Execution: React.FC = () => {
             nodesData.forEach((n: any) => colorMap[n.id] = n.color);
             setNodeColors(colorMap);
 
+            // Load all objectives for task creation
+            const allObjectives: any[] = [];
+            for (const node of nodesData) {
+                try {
+                    const nodeObjectives = await api.getObjectives(node.id);
+                    allObjectives.push(...nodeObjectives);
+                } catch (err) {
+                    console.error(`Error loading objectives for node ${node.id}:`, err);
+                }
+            }
+            setObjectives(allObjectives);
+
             const data = await api.getAllTasks();
-            // Default sort by priority_score desc
-            data.sort((a: Task, b: Task) => b.priority_score - a.priority_score);
-            setTasks(data);
+
+            // Initialize priority_score for tasks that don't have one
+            // Assign scores from 1000 downwards based on current order
+            const tasksWithScores = data.map((task: Task, index: number) => {
+                const score = task.priority_score != null && !isNaN(Number(task.priority_score))
+                    ? Number(task.priority_score)
+                    : 1000 - index;
+
+                return {
+                    ...task,
+                    priority_score: score
+                };
+            });
+
+            console.log('Loaded tasks with initialized scores:', tasksWithScores.map((t: Task) => ({
+                title: t.title,
+                score: t.priority_score
+            })));
+
+            // Sort by priority_score desc
+            tasksWithScores.sort((a: Task, b: Task) => b.priority_score - a.priority_score);
+            setTasks(tasksWithScores);
 
             const projects = Array.from(new Set(data.map((t: Task) => t.project_name).filter(Boolean))) as string[];
             setAllProjects(projects);
@@ -413,14 +455,25 @@ const Execution: React.FC = () => {
         const { active, over } = event;
         setActiveTask(null);
 
-        if (!over) return;
+        if (!over) {
+            console.log('No over target');
+            return;
+        }
 
         const activeData = active.data.current;
         const overData = over.data.current;
 
+        console.log('Drag End:', {
+            activeId: active.id,
+            overId: over.id,
+            activeData,
+            overData
+        });
+
         // In swimlane mode, prevent cross-swimlane drops
         if (swimlaneMode !== 'none') {
             if (activeData?.swimlaneId && overData?.swimlaneId && activeData.swimlaneId !== overData.swimlaneId) {
+                console.log('Prevented cross-swimlane drop');
                 return; // Prevent cross-swimlane drops
             }
         }
@@ -429,25 +482,40 @@ const Execution: React.FC = () => {
         const overId = typeof over.id === 'string' ? over.id : String(over.id);
 
         // Extract actual task ID (remove swimlane prefix if present)
-        const actualTaskId = activeId.includes('-') ? activeId.split('-').pop()! : activeId;
+        // Swimlane IDs are in format: "swimlaneId-taskUUID"
+        // We need to check if there's a swimlane prefix by looking at the activeData
+        const actualTaskId = activeData?.swimlaneId
+            ? activeId.substring(activeData.swimlaneId.length + 1) // Remove "swimlaneId-" prefix
+            : activeId;
+
+        console.log('Extracted task ID:', actualTaskId, 'from activeId:', activeId);
+
         const activeTask = tasks.find(t => t.id === actualTaskId);
-        if (!activeTask) return;
+        if (!activeTask) {
+            console.log('Active task not found:', actualTaskId);
+            return;
+        }
 
         // 1. Determine destination column and index
         let newStatus = activeTask.status;
 
         if (over.data.current?.type === 'Column') {
             newStatus = over.id as string;
+            console.log('Dropped on column:', newStatus);
         } else if (over.data.current?.type === 'Task') {
-            const overTaskId = overId.includes('-') ? overId.split('-').pop()! : overId;
+            const overTaskId = overData?.swimlaneId
+                ? overId.substring(overData.swimlaneId.length + 1)
+                : overId;
             const overTask = tasks.find(t => t.id === overTaskId);
             if (overTask) {
                 newStatus = overTask.status;
+                console.log('Dropped on task:', overTask.title, 'status:', newStatus);
             }
         }
 
         // Check if Status Changed
         if (activeTask.status !== newStatus) {
+            console.log('Status changed from', activeTask.status, 'to', newStatus);
             // Optimistic update
             setTasks(prev => {
                 return prev.map(t => {
@@ -468,62 +536,125 @@ const Execution: React.FC = () => {
 
         // Check if Reordered (Priority Change)
         if (activeId !== overId) {
+            console.log('Checking reorder: activeId !== overId');
             if (activeTask.status === newStatus) {
+                console.log('Same status, calculating new priority');
                 const currentColumnTasks = swimlaneMode === 'none'
                     ? columns[newStatus]
                     : swimlaneData?.find(s => s.id === activeData?.swimlaneId)?.columns[newStatus] || [];
 
+                console.log('Current column tasks:', currentColumnTasks.length);
+
                 const oldIndex = currentColumnTasks.findIndex(t => t.id === actualTaskId);
-                const targetTaskId = overId.includes('-') ? overId.split('-').pop()! : overId;
+                const targetTaskId = overData?.swimlaneId
+                    ? overId.substring(overData.swimlaneId.length + 1)
+                    : overId;
                 const targetIndex = currentColumnTasks.findIndex(t => t.id === targetTaskId);
 
+                console.log('Indices:', { oldIndex, targetIndex });
+
                 if (oldIndex !== targetIndex && oldIndex !== -1 && targetIndex !== -1) {
-                    // Logic to calculate new priority
-                    // We need the array of tasks in the *destination* state (after move).
-                    // Or we can infer from current state:
-                    // If moving down (old < target), we want to be *below* target.
-                    // If moving up (old > target), we want to be *above* target.
-
-                    // Actually, let's look at the neighbors in the *sorted* list.
-                    // dnd-kit gives us the `over` element. 
-                    // If we drop OVER a task, it usually inserts BEFORE it in sortable context?
-                    // Let's rely on standard reorder logic: 
-                    // We need to find the new neighbors.
-
-                    // Let's create a temp array of the tasks in that column to simulate the move.
+                    // Create a temp array to simulate the move
                     const taskList = [...currentColumnTasks];
+
+                    console.log('TaskList before move:', taskList.map(t => ({
+                        id: t.id,
+                        title: t.title,
+                        score: t.priority_score
+                    })));
+
                     const [movedItem] = taskList.splice(oldIndex, 1);
                     taskList.splice(targetIndex, 0, movedItem);
 
-                    // Now `taskList` has the new order. Find neighbors of `movedItem`.
-                    const newIndex = targetIndex; // It's at targetIndex now.
+                    console.log('TaskList after move:', taskList.map(t => ({
+                        id: t.id,
+                        title: t.title,
+                        score: t.priority_score
+                    })));
+
+                    // Find neighbors in the NEW order
+                    const newIndex = targetIndex;
+
+                    console.log('Looking for neighbors at newIndex:', newIndex, 'taskList.length:', taskList.length);
+                    console.log('Moved item:', movedItem.title, 'score:', movedItem.priority_score);
 
                     const prevTask = newIndex > 0 ? taskList[newIndex - 1] : null;
                     const nextTask = newIndex < taskList.length - 1 ? taskList[newIndex + 1] : null;
 
+                    console.log('prevTask:', prevTask ? { title: prevTask.title, score: prevTask.priority_score } : null);
+                    console.log('nextTask:', nextTask ? { title: nextTask.title, score: nextTask.priority_score } : null);
+
                     let newScore = 0;
 
                     if (!prevTask && !nextTask) {
-                        // Only item? Keep same or default?
+                        // Only item in column
                         newScore = activeTask.priority_score;
                     } else if (!prevTask && nextTask) {
-                        // At top
+                        // At top - give it a higher score than the next task
                         newScore = nextTask.priority_score + 10;
                     } else if (prevTask && !nextTask) {
-                        // At bottom
+                        // At bottom - give it a lower score than the previous task
                         newScore = prevTask.priority_score - 10;
                     } else if (prevTask && nextTask) {
-                        // In between
-                        newScore = (prevTask.priority_score + nextTask.priority_score) / 2;
+                        // In between - calculate average
+                        const avg = (prevTask.priority_score + nextTask.priority_score) / 2;
+
+                        // If the average equals one of the neighbors (happens when they're the same),
+                        // we need to create space
+                        if (avg === prevTask.priority_score || avg === nextTask.priority_score) {
+                            // Recalculate scores for the entire column to create proper spacing
+                            console.log('Scores are too close, recalculating entire column');
+
+                            // Assign new scores with proper spacing (10 points apart)
+                            const baseScore = 1000;
+                            taskList.forEach((task, idx) => {
+                                const calculatedScore = baseScore - (idx * 10);
+                                if (task.id === actualTaskId) {
+                                    newScore = calculatedScore;
+                                }
+                            });
+
+                            // Update all tasks in this column with new scores
+                            setTasks(prev => {
+                                const updated = prev.map(t => {
+                                    const taskInList = taskList.find(tl => tl.id === t.id);
+                                    if (taskInList) {
+                                        const idx = taskList.indexOf(taskInList);
+                                        return { ...t, priority_score: baseScore - (idx * 10) };
+                                    }
+                                    return t;
+                                });
+                                return updated.sort((a, b) => b.priority_score - a.priority_score);
+                            });
+
+                            // Update all tasks in backend
+                            taskList.forEach((task, idx) => {
+                                const calculatedScore = baseScore - (idx * 10);
+                                if (task.priority_score !== calculatedScore) {
+                                    api.updateTaskPriority(task.id, calculatedScore, "Auto-Rebalance")
+                                        .catch(err => console.error("Failed to update priority", err));
+                                }
+                            });
+
+                            return; // Exit early since we already updated everything
+                        } else {
+                            newScore = avg;
+                        }
                     }
 
-                    console.log(`Auto Reprioritize: ${activeTask.title} -> New Score: ${newScore}`);
+                    console.log(`Auto Reprioritize: ${activeTask.title} -> New Score: ${newScore}`, {
+                        prevScore: prevTask?.priority_score,
+                        nextScore: nextTask?.priority_score
+                    });
 
-                    // Optimistic Update
-                    setTasks(prev => prev.map(t =>
-                        t.id === actualTaskId ? { ...t, priority_score: newScore } : t
-                    ).sort((a, b) => b.priority_score - a.priority_score)); // Re-sort to reflect change visually? 
-                    // Note: Sorting might make it jump if we don't handle it carefully, but it's correct data-wise.
+                    // Optimistic Update - Update the task's score and re-sort ALL tasks
+                    setTasks(prev => {
+                        const updated = prev.map(t =>
+                            t.id === actualTaskId ? { ...t, priority_score: newScore } : t
+                        );
+                        // Sort by priority_score descending to maintain order
+                        return updated.sort((a, b) => b.priority_score - a.priority_score);
+                    });
 
                     // Call API
                     api.updateTaskPriority(actualTaskId, newScore, "Auto-Drag-Drop")
@@ -560,53 +691,135 @@ const Execution: React.FC = () => {
         setSwimlaneMode(modes[nextIndex]);
     };
 
+    const handleCreateTask = async () => {
+        if (!newTask.title.trim() || !newTask.objective_id) {
+            alert('Debes ingresar un título y seleccionar un objetivo');
+            return;
+        }
+
+        setIsCreatingTask(true);
+        try {
+            await api.createTask({
+                title: newTask.title,
+                description: newTask.description,
+                objective_id: newTask.objective_id,
+                status: newTask.status,
+                weight: 1,
+                priority_score: 1000
+            });
+            setShowCreateTask(false);
+            setNewTask({ title: '', description: '', objective_id: '', status: 'Backlog' });
+            await loadNodesAndTasks();
+        } catch (err) {
+            console.error(err);
+            alert('Error al crear la tarea');
+        } finally {
+            setIsCreatingTask(false);
+        }
+    };
+
     return (
         <div style={{ padding: '0 20px', height: '100vh', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)', marginTop: '20px' }}>
-                <div>
-                    <h1 className="title-gradient" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
-                        <Calendar /> Tablero de Ejecución
-                    </h1>
-                    <p className="text-muted">Gestión visual de tareas. Arrastra para cambiar estado o repriorizar.</p>
-                </div>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    {/* Swimlane Mode Toggle */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '12px', marginTop: '12px', gap: '12px' }}>
+                {/* Create Task Button */}
+                <button
+                    onClick={() => setShowCreateTask(true)}
+                    style={{
+                        padding: '8px 16px',
+                        background: 'var(--primary)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: 'var(--radius-md)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        fontWeight: 'bold',
+                        transition: 'all 0.2s ease'
+                    }}
+                >
+                    <Plus size={18} />
+                    Nueva Tarea
+                </button>
+
+                {/* Swimlane Mode Toggle */}
+                <button
+                    onClick={cycleSwimlaneMode}
+                    style={{
+                        padding: '8px 16px',
+                        background: swimlaneMode !== 'none' ? 'var(--primary)' : 'var(--glass-bg)',
+                        color: 'white',
+                        border: '1px solid var(--glass-border)',
+                        borderRadius: 'var(--radius-md)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        fontWeight: swimlaneMode !== 'none' ? 'bold' : 'normal'
+                    }}
+                >
+                    {swimlaneMode === 'none' && '📋 Vista Plana'}
+                    {swimlaneMode === 'nodes' && '🎯 Swimlanes por Nodos'}
+                    {swimlaneMode === 'projects' && '📁 Swimlanes por Proyectos'}
+                </button>
+            </div>
+
+            {/* Project Filter Chips */}
+            {allProjects.length > 0 && (
+                <div style={{
+                    display: 'flex',
+                    gap: '8px',
+                    marginBottom: '16px',
+                    flexWrap: 'wrap',
+                    alignItems: 'center'
+                }}>
+                    <span style={{
+                        fontSize: '0.85rem',
+                        color: 'var(--text-muted)',
+                        fontWeight: '600',
+                        marginRight: '4px'
+                    }}>
+                        Filtrar:
+                    </span>
                     <button
-                        onClick={cycleSwimlaneMode}
+                        onClick={() => setSelectedProject('all')}
                         style={{
-                            padding: '8px 16px',
-                            background: swimlaneMode !== 'none' ? 'var(--primary)' : 'var(--glass-bg)',
-                            color: 'white',
-                            border: '1px solid var(--glass-border)',
-                            borderRadius: 'var(--radius-md)',
+                            padding: '6px 14px',
+                            background: selectedProject === 'all' ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                            color: selectedProject === 'all' ? 'white' : 'var(--text-secondary)',
+                            border: `1px solid ${selectedProject === 'all' ? 'var(--primary)' : 'var(--glass-border)'}`,
+                            borderRadius: '20px',
                             cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            fontWeight: swimlaneMode !== 'none' ? 'bold' : 'normal'
+                            fontSize: '0.85rem',
+                            fontWeight: selectedProject === 'all' ? '600' : '400',
+                            transition: 'all 0.2s ease',
+                            whiteSpace: 'nowrap'
                         }}
                     >
-                        {swimlaneMode === 'none' && '📋 Vista Plana'}
-                        {swimlaneMode === 'nodes' && '🎯 Swimlanes por Nodos'}
-                        {swimlaneMode === 'projects' && '📁 Swimlanes por Proyectos'}
+                        Todos
                     </button>
-
-                    {allProjects.length > 0 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
-                            <select
-                                value={selectedProject}
-                                onChange={(e) => setSelectedProject(e.target.value)}
-                                style={{ padding: '8px', background: 'var(--bg-app)', color: 'white', border: '1px solid var(--glass-border)', borderRadius: 'var(--radius-md)' }}
-                            >
-                                <option value="all">Todos los proyectos</option>
-                                {allProjects.map(p => (
-                                    <option key={p} value={p}>{p}</option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
+                    {allProjects.map(project => (
+                        <button
+                            key={project}
+                            onClick={() => setSelectedProject(project)}
+                            style={{
+                                padding: '6px 14px',
+                                background: selectedProject === project ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                                color: selectedProject === project ? 'white' : 'var(--text-secondary)',
+                                border: `1px solid ${selectedProject === project ? 'var(--primary)' : 'var(--glass-border)'}`,
+                                borderRadius: '20px',
+                                cursor: 'pointer',
+                                fontSize: '0.85rem',
+                                fontWeight: selectedProject === project ? '600' : '400',
+                                transition: 'all 0.2s ease',
+                                whiteSpace: 'nowrap'
+                            }}
+                        >
+                            {project}
+                        </button>
+                    ))}
                 </div>
-            </div>
+            )}
 
             <DndContext
                 sensors={sensors}
@@ -700,6 +913,168 @@ const Execution: React.FC = () => {
                 onUpdate={handleUpdate}
                 projects={allProjects}
             />
+
+            {/* Create Task Modal */}
+            {showCreateTask && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.7)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000
+                }}>
+                    <div className="glass-panel" style={{
+                        width: '90%',
+                        maxWidth: '600px',
+                        padding: 'var(--space-lg)',
+                        maxHeight: '80vh',
+                        overflowY: 'auto'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
+                            <h2 style={{ margin: 0 }}>Nueva Tarea</h2>
+                            <button
+                                onClick={() => {
+                                    setShowCreateTask(false);
+                                    setNewTask({ title: '', description: '', objective_id: '', status: 'Backlog' });
+                                }}
+                                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
+                            >
+                                <X size={24} />
+                            </button>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Título *</label>
+                                <input
+                                    type="text"
+                                    value={newTask.title}
+                                    onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                                    placeholder="Título de la tarea"
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        background: 'var(--bg-app)',
+                                        border: '1px solid var(--glass-border)',
+                                        borderRadius: 'var(--radius-md)',
+                                        color: 'white',
+                                        fontSize: '1rem'
+                                    }}
+                                    autoFocus
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Descripción</label>
+                                <textarea
+                                    value={newTask.description}
+                                    onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+                                    placeholder="Descripción de la tarea"
+                                    rows={4}
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        background: 'var(--bg-app)',
+                                        border: '1px solid var(--glass-border)',
+                                        borderRadius: 'var(--radius-md)',
+                                        color: 'white',
+                                        fontSize: '0.95rem',
+                                        resize: 'vertical'
+                                    }}
+                                />
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Objetivo *</label>
+                                <select
+                                    value={newTask.objective_id}
+                                    onChange={(e) => setNewTask({ ...newTask, objective_id: e.target.value })}
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        background: 'var(--bg-app)',
+                                        border: '1px solid var(--glass-border)',
+                                        borderRadius: 'var(--radius-md)',
+                                        color: 'white',
+                                        fontSize: '0.95rem'
+                                    }}
+                                >
+                                    <option value="">Selecciona un objetivo</option>
+                                    {objectives.map((obj: any) => (
+                                        <option key={obj.id} value={obj.id}>
+                                            {obj.description}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Estado Inicial</label>
+                                <select
+                                    value={newTask.status}
+                                    onChange={(e) => setNewTask({ ...newTask, status: e.target.value })}
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        background: 'var(--bg-app)',
+                                        border: '1px solid var(--glass-border)',
+                                        borderRadius: 'var(--radius-md)',
+                                        color: 'white',
+                                        fontSize: '0.95rem'
+                                    }}
+                                >
+                                    {COLUMNS.map(col => (
+                                        <option key={col.id} value={col.id}>{col.title}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '12px', marginTop: 'var(--space-md)' }}>
+                                <button
+                                    onClick={handleCreateTask}
+                                    disabled={isCreatingTask}
+                                    style={{
+                                        flex: 1,
+                                        padding: '12px',
+                                        background: isCreatingTask ? 'var(--text-muted)' : 'var(--primary)',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: 'var(--radius-md)',
+                                        cursor: isCreatingTask ? 'not-allowed' : 'pointer',
+                                        fontWeight: 'bold',
+                                        fontSize: '1rem'
+                                    }}
+                                >
+                                    {isCreatingTask ? 'Creando...' : 'Crear Tarea'}
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowCreateTask(false);
+                                        setNewTask({ title: '', description: '', objective_id: '', status: 'Backlog' });
+                                    }}
+                                    style={{
+                                        padding: '12px 24px',
+                                        background: 'transparent',
+                                        color: 'var(--text-muted)',
+                                        border: '1px solid var(--glass-border)',
+                                        borderRadius: 'var(--radius-md)',
+                                        cursor: 'pointer',
+                                        fontWeight: 'bold',
+                                        fontSize: '1rem'
+                                    }}
+                                >
+                                    Cancelar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
