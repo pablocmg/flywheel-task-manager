@@ -159,7 +159,16 @@ export const updateTask = async (req: Request, res: Response) => {
             WHERE id = $8
             RETURNING *
         `;
-        const values = [title, description, status, priority_score, objective_id, target_date, evidence_url, id];
+        const values = [
+            title,
+            description,
+            status,
+            priority_score,
+            objective_id || null, // Convert empty string to null for UUID
+            target_date || null,  // Convert empty string to null for DATE
+            evidence_url,
+            id
+        ];
         const result = await db.query(query, values);
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Task not found' });
@@ -290,27 +299,37 @@ export const updateTaskDependencies = async (req: Request, res: Response) => {
         await db.query('DELETE FROM task_dependencies WHERE source_task_id = $1', [id]);
 
         // Insert new depends_on dependencies
-        if (depends_on && depends_on.length > 0) {
-            const dependsOnValues = depends_on.map((targetId: string) =>
-                `('${id}', '${targetId}', 'depends_on')`
-            ).join(',');
+        if (depends_on && Array.isArray(depends_on) && depends_on.length > 0) {
+            console.log(`Processing depends_on for task ${id}:`, depends_on);
+            const uniqueDependsOn = [...new Set(depends_on)].filter((targetId: string) => targetId !== id && targetId);
 
-            await db.query(`
-                INSERT INTO task_dependencies (source_task_id, target_task_id, dependency_type)
-                VALUES ${dependsOnValues}
-            `);
+            if (uniqueDependsOn.length > 0) {
+                const dependsOnValues = uniqueDependsOn.map((targetId: string) =>
+                    `('${id}', '${targetId}', 'depends_on')`
+                ).join(',');
+
+                await db.query(`
+                    INSERT INTO task_dependencies (source_task_id, target_task_id, dependency_type)
+                    VALUES ${dependsOnValues}
+                `);
+            }
         }
 
         // Insert new enables dependencies
-        if (enables && enables.length > 0) {
-            const enablesValues = enables.map((targetId: string) =>
-                `('${id}', '${targetId}', 'enables')`
-            ).join(',');
+        if (enables && Array.isArray(enables) && enables.length > 0) {
+            console.log(`Processing enables for task ${id}:`, enables);
+            const uniqueEnables = [...new Set(enables)].filter((targetId: string) => targetId !== id && targetId);
 
-            await db.query(`
-                INSERT INTO task_dependencies (source_task_id, target_task_id, dependency_type)
-                VALUES ${enablesValues}
-            `);
+            if (uniqueEnables.length > 0) {
+                const enablesValues = uniqueEnables.map((targetId: string) =>
+                    `('${id}', '${targetId}', 'enables')`
+                ).join(',');
+
+                await db.query(`
+                    INSERT INTO task_dependencies (source_task_id, target_task_id, dependency_type)
+                    VALUES ${enablesValues}
+                `);
+            }
         }
 
         // Commit transaction

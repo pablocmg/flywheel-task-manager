@@ -22,12 +22,13 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
         evidence_url: '',
     });
     const [loading, setLoading] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [allTasks, setAllTasks] = useState<any[]>([]);
     const [dependsOn, setDependsOn] = useState<string[]>([]);
     const [enables, setEnables] = useState<string[]>([]);
     const [editingDependsOn, setEditingDependsOn] = useState(false);
     const [editingEnables, setEditingEnables] = useState(false);
-    const [projects, setProjects] = useState<string[]>([]);
+    const [projects, setProjects] = useState<{ id: string, name: string }[]>([]);
 
     // Dependency editor state
     const [selectedProjectForDeps, setSelectedProjectForDeps] = useState('');
@@ -48,8 +49,8 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
             });
 
             // Set default project for dependency editors
-            setSelectedProjectForDeps(task.project_name || '');
-            setSelectedProjectForEnables(task.project_name || '');
+            setSelectedProjectForDeps(task.project_id || '');
+            setSelectedProjectForEnables(task.project_id || '');
 
             // Load all tasks and dependencies
             const loadData = async () => {
@@ -63,7 +64,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                     setEnables(deps.enables.map((e: any) => e.id));
 
                     const projectsData = await api.getProjects();
-                    setProjects(projectsData.map((p: any) => p.name).sort());
+                    setProjects(projectsData.sort((a: any, b: any) => a.name.localeCompare(b.name)));
                 } catch (error) {
                     console.error('Error loading dependencies:', error);
                 }
@@ -74,11 +75,12 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
 
     const handleSubmit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
+        setErrorMessage(null);
 
         // Validate circular dependencies
         const circularDeps = dependsOn.filter(id => enables.includes(id));
         if (circularDeps.length > 0) {
-            alert('Error: No puedes tener dependencias circulares. Una tarea no puede depender de y habilitar a la misma tarea.');
+            setErrorMessage('Error: No puedes tener dependencias circulares. Una tarea no puede depender de y habilitar a la misma tarea.');
             return;
         }
 
@@ -99,9 +101,9 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
 
             onUpdate();
             onClose();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error updating task:', error);
-            alert('Error al actualizar tarea');
+            setErrorMessage(`Error al actualizar tarea: ${error.message || 'Error desconocido'}`);
         }
         setLoading(false);
     };
@@ -112,9 +114,9 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
 
     // Filter tasks for dependency editor
     // Filter tasks for dependency editor
-    const getFilteredTasks = (selectedProject: string, searchTerm: string) => {
+    const getFilteredTasks = (selectedProjectId: string, searchTerm: string) => {
         return allTasks.filter((t: any) => {
-            const matchesProject = !selectedProject || t.project_name === selectedProject;
+            const matchesProject = !selectedProjectId || t.project_id === selectedProjectId;
             const matchesSearch = !searchTerm || t.title.toLowerCase().includes(searchTerm.toLowerCase());
             return matchesProject && matchesSearch;
         });
@@ -191,8 +193,8 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                                 }}
                             >
                                 <option value="">Todos los proyectos</option>
-                                {projects.map((project: string) => (
-                                    <option key={project} value={project}>{project}</option>
+                                {projects.map((project: { id: string, name: string }) => (
+                                    <option key={project.id} value={project.id}>{project.name}</option>
                                 ))}
                             </select>
                         </div>
@@ -565,11 +567,24 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
 
 
 
-                            {/* Metadata */}
                             <div style={{ marginTop: 'auto', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                                 <p>Creación: {new Date(task.created_at || Date.now()).toLocaleDateString()}</p>
                                 {task.node_name && <p>Nodo: <span style={{ color: task.node_color || 'white' }}>{task.node_name}</span></p>}
                             </div>
+
+                            {errorMessage && (
+                                <div style={{
+                                    color: '#ff4d4f',
+                                    background: 'rgba(255, 77, 79, 0.1)',
+                                    border: '1px solid #ff4d4f',
+                                    padding: '8px 12px',
+                                    borderRadius: '6px',
+                                    marginTop: '16px',
+                                    fontSize: '0.9rem'
+                                }}>
+                                    {errorMessage}
+                                </div>
+                            )}
 
                             <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
                                 <button

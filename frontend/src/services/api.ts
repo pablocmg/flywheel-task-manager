@@ -230,7 +230,7 @@ export const api = {
         return res.json();
     },
     getTaskDependencies: async (id: string) => {
-        const res = await fetch(`${API_URL}/tasks/${id}/dependencies`);
+        const res = await fetch(`${API_URL}/tasks/${id}/dependencies?t=${Date.now()}`);
         if (!res.ok) throw new Error('Failed to fetch task dependencies');
         return res.json();
     },
@@ -240,7 +240,10 @@ export const api = {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(dependencies),
         });
-        if (!res.ok) throw new Error('Failed to update task dependencies');
+        if (!res.ok) {
+            const error = await res.json().catch(() => ({}));
+            throw new Error(error.error || 'Failed to update task dependencies');
+        }
         return res.json();
     },
 

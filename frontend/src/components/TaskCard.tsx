@@ -1,8 +1,5 @@
 import React from 'react';
 import { Circle, Clock, ExternalLink } from 'lucide-react';
-// remove api import? It is not used anymore?
-// Yes, check if any other logic uses api.
-// Only handleStatusChange used api. So I can remove it.
 
 interface Task {
     id: string;
@@ -29,17 +26,7 @@ interface TaskCardProps {
     nodeColors?: Record<string, string>; // Map ID -> Color
 }
 
-export const TaskCard: React.FC<TaskCardProps> = ({ task, index, onUpdate, onEdit, nodeColors }) => {
-
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'Done': return 'var(--state-success)';
-            case 'Doing': return 'var(--state-warning)';
-            case 'Waiting': return 'var(--state-neutral)';
-            case 'Backlog': return 'var(--text-muted)';
-            default: return 'var(--text-secondary)';
-        }
-    };
+export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, nodeColors }) => {
 
     // Determine Border Color: node_color (from backend) -> node_id check -> default
     const borderColor = task.node_color ||
