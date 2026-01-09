@@ -672,9 +672,7 @@ const Execution: React.FC = () => {
         }
     };
 
-    const confirmReprioritization = async () => {
-        // Deprecated Modal Logic
-    };
+
 
     const dropAnimation: DropAnimation = {
         sideEffects: defaultDropAnimationSideEffects({

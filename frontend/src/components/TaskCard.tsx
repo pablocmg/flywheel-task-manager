@@ -20,8 +20,6 @@ interface Task {
 
 interface TaskCardProps {
     task: Task;
-    index?: number; // Rank index
-    onUpdate: () => void;
     onEdit?: (task: Task) => void;
     nodeColors?: Record<string, string>; // Map ID -> Color
 }
