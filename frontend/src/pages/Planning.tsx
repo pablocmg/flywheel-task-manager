@@ -147,11 +147,10 @@ const Planning: React.FC = () => {
     const [isCreatingKR, setIsCreatingKR] = useState(false);
     const [deletingKRId, setDeletingKRId] = useState<string | null>(null);
     const [deletingObjectiveId, setDeletingObjectiveId] = useState<string | null>(null);
-    const [deletingPeriodId, setDeletingPeriodId] = useState<string | null>(null);
+
     const [isCreatingObjective, setIsCreatingObjective] = useState(false);
-    const [isCreatingPeriod, setIsCreatingPeriod] = useState(false);
-    const [updatingObjectiveId, setUpdatingObjectiveId] = useState<string | null>(null);
-    const [updatingKRId, setUpdatingKRId] = useState<string | null>(null);
+
+    // const [updatingObjectiveId] = useState<string | null>(null); // Removed unused
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -321,7 +320,7 @@ const Planning: React.FC = () => {
     const handleDeleteGroup = async () => {
         if (!confirmDeleteGroup) return;
 
-        setDeletingPeriodId(confirmDeleteGroup.id);
+
         try {
             await api.deleteObjectiveGroup(confirmDeleteGroup.id);
             setConfirmDeleteGroup(null);
@@ -330,7 +329,7 @@ const Planning: React.FC = () => {
             console.error(err);
             alert('Error al eliminar el periodo');
         } finally {
-            setDeletingPeriodId(null);
+
         }
     };
 
@@ -399,7 +398,7 @@ const Planning: React.FC = () => {
     };
 
     const handleUpdateObjective = async (objId: string, newDesc: string) => {
-        setUpdatingObjectiveId(objId);
+
         try {
             const group = objectiveGroups.find(g => g.objectives.some(o => o.id === objId));
             const obj = group?.objectives.find(o => o.id === objId);
@@ -411,7 +410,7 @@ const Planning: React.FC = () => {
         } catch (err) {
             console.error(err);
         } finally {
-            setUpdatingObjectiveId(null);
+            // setUpdatingObjectiveId(null);
         }
     };
 

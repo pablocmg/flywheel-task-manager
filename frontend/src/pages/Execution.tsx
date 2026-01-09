@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../services/api';
 import { TaskCard } from '../components/TaskCard';
 import { TaskEditModal } from '../components/TaskEditModal';
-import { Calendar, Plus, X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import {
     DndContext,
     closestCorners,
@@ -64,14 +64,12 @@ function SortableTaskItem({
     task,
     nodeColors,
     onEdit,
-    swimlaneId,
-    index
+    swimlaneId
 }: {
     task: Task;
     nodeColors: Record<string, string>;
     onEdit: (t: Task) => void;
     swimlaneId?: string;
-    index?: number;
 }) {
     const itemId = swimlaneId ? `${swimlaneId}-${task.id}` : task.id;
     const {
@@ -91,7 +89,7 @@ function SortableTaskItem({
 
     return (
         <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-            <TaskCard task={task} index={index} onUpdate={() => { }} nodeColors={nodeColors} onEdit={onEdit} />
+            <TaskCard task={task} nodeColors={nodeColors} onEdit={onEdit} />
         </div>
     );
 }
@@ -168,11 +166,10 @@ function SwimlaneRow({
                             items={swimlane.columns[col.id].map(t => `${swimlane.id}-${t.id}`)}
                             strategy={verticalListSortingStrategy}
                         >
-                            {swimlane.columns[col.id].map((task, idx) => (
+                            {swimlane.columns[col.id].map((task) => (
                                 <SortableTaskItem
                                     key={`${swimlane.id}-${task.id}`}
                                     task={task}
-                                    index={idx}
                                     nodeColors={nodeColors}
                                     onEdit={onEdit}
                                     swimlaneId={swimlane.id}
@@ -255,8 +252,8 @@ function KanbanColumn({ id, title, tasks, nodeColors, onEdit }: { id: string; ti
 
                 <div style={{ flex: 1, padding: '8px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-                        {tasks.map((task, idx) => (
-                            <SortableTaskItem key={task.id} task={task} index={idx} nodeColors={nodeColors} onEdit={onEdit} />
+                        {tasks.map((task) => (
+                            <SortableTaskItem key={task.id} task={task} nodeColors={nodeColors} onEdit={onEdit} />
                         ))}
                     </SortableContext>
                 </div>
@@ -899,7 +896,7 @@ const Execution: React.FC = () => {
                 <DragOverlay dropAnimation={dropAnimation}>
                     {activeTask ? (
                         <div style={{ transform: 'rotate(3deg)' }}>
-                            <TaskCard task={activeTask} onUpdate={() => { }} nodeColors={nodeColors} onEdit={() => { }} />
+                            <TaskCard task={activeTask} nodeColors={nodeColors} onEdit={() => { }} />
                         </div>
                     ) : null}
                 </DragOverlay>
