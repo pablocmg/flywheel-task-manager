@@ -35,6 +35,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
     const [selectedProjectForEnables, setSelectedProjectForEnables] = useState('');
     const [searchDeps, setSearchDeps] = useState('');
     const [searchEnables, setSearchEnables] = useState('');
+    const [areDependenciesLoading, setAreDependenciesLoading] = useState(false);
 
     useEffect(() => {
         if (task) {
@@ -54,6 +55,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
 
             // Load all tasks and dependencies
             const loadData = async () => {
+                setAreDependenciesLoading(true);
                 try {
                     const tasks = await api.getAllTasks();
                     setAllTasks(tasks.filter((t: any) => t.id !== task.id)); // Exclude current task
@@ -67,6 +69,8 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                     setProjects(projectsData.sort((a: any, b: any) => a.name.localeCompare(b.name)));
                 } catch (error) {
                     console.error('Error loading dependencies:', error);
+                } finally {
+                    setAreDependenciesLoading(false);
                 }
             };
             loadData();
@@ -230,10 +234,18 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                 {filteredTasks.map((t: any) => {
                                     const isSelected = selectedIds.includes(t.id);
+                                    const isDisabled = (isDependsOn ? enables : dependsOn).includes(t.id);
+
                                     return (
                                         <div
                                             key={t.id}
+                                            title={isDisabled
+                                                ? (isDependsOn
+                                                    ? "Esta tarea ya fue agregada como habilitada por la actual"
+                                                    : "Esta tarea ya fue agregada como dependencia de la actual")
+                                                : ""}
                                             onClick={() => {
+                                                if (isDisabled) return;
                                                 if (isSelected) {
                                                     setSelectedIds(selectedIds.filter(id => id !== t.id));
                                                 } else {
@@ -242,15 +254,27 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                                             }}
                                             style={{
                                                 padding: '12px',
-                                                background: isSelected ? 'var(--primary)' : 'var(--bg-panel)',
+                                                background: isSelected
+                                                    ? 'var(--primary)'
+                                                    : isDisabled
+                                                        ? 'rgba(255,255,255,0.05)'
+                                                        : 'var(--bg-panel)',
                                                 border: `1px solid ${isSelected ? 'var(--primary)' : 'var(--border-color)'}`,
                                                 borderRadius: '6px',
-                                                cursor: 'pointer',
+                                                cursor: isDisabled ? 'not-allowed' : 'pointer',
                                                 transition: 'all 0.2s',
-                                                color: isSelected ? 'white' : 'var(--text-secondary)'
+                                                color: isSelected
+                                                    ? 'white'
+                                                    : isDisabled
+                                                        ? 'var(--text-muted)'
+                                                        : 'var(--text-secondary)',
+                                                opacity: isDisabled ? 0.6 : 1
                                             }}
                                         >
-                                            <div style={{ fontWeight: isSelected ? 'bold' : 'normal' }}>{t.title}</div>
+                                            <div style={{ fontWeight: isSelected ? 'bold' : 'normal', display: 'flex', justifyContent: 'space-between' }}>
+                                                <span>{t.title}</span>
+                                                {isDisabled && <span style={{ fontSize: '0.7em', fontStyle: 'italic' }}>{isDependsOn ? '(Habilitada)' : '(Dependencia)'}</span>}
+                                            </div>
                                             {t.description && (
                                                 <div style={{ fontSize: '0.85rem', marginTop: '4px', opacity: 0.8 }}>
                                                     {t.description.substring(0, 100)}{t.description.length > 100 ? '...' : ''}
@@ -471,6 +495,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                                     <button
                                         type="button"
                                         onClick={() => setEditingDependsOn(true)}
+                                        disabled={areDependenciesLoading}
                                         style={{
                                             padding: '6px 12px',
                                             background: 'var(--primary)',
@@ -478,7 +503,8 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                                             borderRadius: '4px',
                                             color: 'white',
                                             fontSize: '0.8rem',
-                                            cursor: 'pointer'
+                                            cursor: areDependenciesLoading ? 'not-allowed' : 'pointer',
+                                            opacity: areDependenciesLoading ? 0.7 : 1
                                         }}
                                     >
                                         {dependsOn.length > 0 ? 'Editar' : 'Agregar'}
@@ -490,9 +516,21 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                                     background: 'var(--bg-card)',
                                     border: '1px solid var(--border-color)',
                                     borderRadius: '6px',
-                                    color: 'var(--text-secondary)'
+                                    color: 'var(--text-secondary)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: areDependenciesLoading ? 'center' : 'flex-start'
                                 }}>
-                                    {dependsOn.length > 0 ? (
+                                    {areDependenciesLoading ? (
+                                        <div style={{
+                                            width: '20px',
+                                            height: '20px',
+                                            border: '2px solid rgba(255,255,255,0.3)',
+                                            borderTopColor: 'white',
+                                            borderRadius: '50%',
+                                            animation: 'spin 1s linear infinite'
+                                        }} />
+                                    ) : dependsOn.length > 0 ? (
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                                             {dependsOn.map(id => {
                                                 const depTask = allTasks.find(t => t.id === id);
@@ -521,6 +559,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                                     <button
                                         type="button"
                                         onClick={() => setEditingEnables(true)}
+                                        disabled={areDependenciesLoading}
                                         style={{
                                             padding: '6px 12px',
                                             background: 'var(--primary)',
@@ -528,7 +567,8 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                                             borderRadius: '4px',
                                             color: 'white',
                                             fontSize: '0.8rem',
-                                            cursor: 'pointer'
+                                            cursor: areDependenciesLoading ? 'not-allowed' : 'pointer',
+                                            opacity: areDependenciesLoading ? 0.7 : 1
                                         }}
                                     >
                                         {enables.length > 0 ? 'Editar' : 'Agregar'}
@@ -540,9 +580,21 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                                     background: 'var(--bg-card)',
                                     border: '1px solid var(--border-color)',
                                     borderRadius: '6px',
-                                    color: 'var(--text-secondary)'
+                                    color: 'var(--text-secondary)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: areDependenciesLoading ? 'center' : 'flex-start'
                                 }}>
-                                    {enables.length > 0 ? (
+                                    {areDependenciesLoading ? (
+                                        <div style={{
+                                            width: '20px',
+                                            height: '20px',
+                                            border: '2px solid rgba(255,255,255,0.3)',
+                                            borderTopColor: 'white',
+                                            borderRadius: '50%',
+                                            animation: 'spin 1s linear infinite'
+                                        }} />
+                                    ) : enables.length > 0 ? (
                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                                             {enables.map(id => {
                                                 const enableTask = allTasks.find(t => t.id === id);
