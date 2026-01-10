@@ -309,5 +309,21 @@ export const api = {
         const res = await fetch(`${API_URL}/projects/${id}`, { method: 'DELETE' });
         if (!res.ok) throw new Error('Failed to delete project');
         return res.json();
+    },
+
+    // Assignees
+    getAssignees: async () => {
+        const res = await fetch(`${API_URL}/assignees`);
+        if (!res.ok) throw new Error('Failed to fetch assignees');
+        return res.json();
+    },
+    getOrCreateAssignee: async (name: string) => {
+        const res = await fetch(`${API_URL}/assignees/get-or-create`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name }),
+        });
+        if (!res.ok) throw new Error('Failed to get/create assignee');
+        return res.json();
     }
 };

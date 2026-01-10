@@ -42,6 +42,8 @@ interface Task {
     node_id?: string;
     node_name?: string;
     node_color?: string;
+    assignee_id?: string;
+    assignee_name?: string;
 }
 
 interface SwimlaneData {
@@ -283,6 +285,10 @@ const Execution: React.FC = () => {
     const [objectives, setObjectives] = useState<any[]>([]);
     const [isCreatingTask, setIsCreatingTask] = useState(false);
 
+    // Assignee filter state
+    const [assignees, setAssignees] = useState<{ id: string, name: string }[]>([]);
+    const [selectedAssignee, setSelectedAssignee] = useState<string | null>('all');
+
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -339,6 +345,10 @@ const Execution: React.FC = () => {
 
             const projects = Array.from(new Set(data.map((t: Task) => t.project_name).filter(Boolean))) as string[];
             setAllProjects(projects);
+
+            // Load assignees
+            const assigneesData = await api.getAssignees();
+            setAssignees(assigneesData);
         } catch (err) {
             console.error(err);
         }
@@ -363,7 +373,14 @@ const Execution: React.FC = () => {
             ? tasks
             : tasks.filter(t => t.project_name === selectedProject);
 
-        visibleTasks.forEach(task => {
+        // Further filter by assignee
+        const filteredTasks = selectedAssignee === 'all'
+            ? visibleTasks
+            : selectedAssignee === null
+                ? visibleTasks.filter(t => !t.assignee_id)
+                : visibleTasks.filter(t => t.assignee_id === selectedAssignee);
+
+        filteredTasks.forEach(task => {
             const groupId = task[groupKey as keyof Task] as string;
             const name = task[groupName as keyof Task] as string;
             const color = groupColor ? task[groupColor as keyof Task] as string : undefined;
@@ -412,7 +429,14 @@ const Execution: React.FC = () => {
             ? tasks
             : tasks.filter(t => t.project_name === selectedProject);
 
-        visibleTasks.forEach(task => {
+        // Further filter by assignee
+        const filteredTasks = selectedAssignee === 'all'
+            ? visibleTasks
+            : selectedAssignee === null
+                ? visibleTasks.filter(t => !t.assignee_id)
+                : visibleTasks.filter(t => t.assignee_id === selectedAssignee);
+
+        filteredTasks.forEach(task => {
             let statusKey = task.status;
             if (statusKey === 'Blocked') statusKey = 'Waiting';
             if (!cols[statusKey]) {
@@ -813,6 +837,80 @@ const Execution: React.FC = () => {
                             }}
                         >
                             {project}
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {/* Assignee Filter Chips */}
+            {assignees.length > 0 && (
+                <div style={{
+                    display: 'flex',
+                    gap: '8px',
+                    marginBottom: '16px',
+                    flexWrap: 'wrap',
+                    alignItems: 'center'
+                }}>
+                    <span style={{
+                        fontSize: '0.85rem',
+                        color: 'var(--text-muted)',
+                        fontWeight: '600',
+                        marginRight: '4px'
+                    }}>
+                        Asignado a:
+                    </span>
+                    <button
+                        onClick={() => setSelectedAssignee('all')}
+                        style={{
+                            padding: '6px 14px',
+                            background: selectedAssignee === 'all' ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                            color: selectedAssignee === 'all' ? 'white' : 'var(--text-secondary)',
+                            border: `1px solid ${selectedAssignee === 'all' ? 'var(--primary)' : 'var(--glass-border)'}`,
+                            borderRadius: '20px',
+                            cursor: 'pointer',
+                            fontSize: '0.85rem',
+                            fontWeight: selectedAssignee === 'all' ? '600' : '400',
+                            transition: 'all 0.2s ease',
+                            whiteSpace: 'nowrap'
+                        }}
+                    >
+                        Todos
+                    </button>
+                    <button
+                        onClick={() => setSelectedAssignee(null)}
+                        style={{
+                            padding: '6px 14px',
+                            background: selectedAssignee === null ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                            color: selectedAssignee === null ? 'white' : 'var(--text-secondary)',
+                            border: `1px solid ${selectedAssignee === null ? 'var(--primary)' : 'var(--glass-border)'}`,
+                            borderRadius: '20px',
+                            cursor: 'pointer',
+                            fontSize: '0.85rem',
+                            fontWeight: selectedAssignee === null ? '600' : '400',
+                            transition: 'all 0.2s ease',
+                            whiteSpace: 'nowrap'
+                        }}
+                    >
+                        Sin asignar
+                    </button>
+                    {assignees.map(assignee => (
+                        <button
+                            key={assignee.id}
+                            onClick={() => setSelectedAssignee(assignee.id)}
+                            style={{
+                                padding: '6px 14px',
+                                background: selectedAssignee === assignee.id ? 'rgba(147, 51, 234, 0.8)' : 'rgba(147, 51, 234, 0.15)',
+                                color: selectedAssignee === assignee.id ? 'white' : '#a78bfa',
+                                border: `1px solid ${selectedAssignee === assignee.id ? '#9333ea' : 'rgba(147, 51, 234, 0.3)'}`,
+                                borderRadius: '20px',
+                                cursor: 'pointer',
+                                fontSize: '0.85rem',
+                                fontWeight: selectedAssignee === assignee.id ? '600' : '400',
+                                transition: 'all 0.2s ease',
+                                whiteSpace: 'nowrap'
+                            }}
+                        >
+                            👤 {assignee.name}
                         </button>
                     ))}
                 </div>

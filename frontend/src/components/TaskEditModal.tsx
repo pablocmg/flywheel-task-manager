@@ -37,6 +37,14 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
     const [searchEnables, setSearchEnables] = useState('');
     const [areDependenciesLoading, setAreDependenciesLoading] = useState(false);
 
+    // Assignee state
+    const [assignees, setAssignees] = useState<{ id: string, name: string }[]>([]);
+    const [assigneeName, setAssigneeName] = useState('');
+    const [assigneeId, setAssigneeId] = useState<string | null>(null);
+
+    // Delete state
+    const [isDeleting, setIsDeleting] = useState(false);
+
     useEffect(() => {
         if (task) {
             setFormData({
@@ -67,6 +75,19 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
 
                     const projectsData = await api.getProjects();
                     setProjects(projectsData.sort((a: any, b: any) => a.name.localeCompare(b.name)));
+
+                    // Load assignees
+                    const assigneesData = await api.getAssignees();
+                    setAssignees(assigneesData);
+
+                    // Set current assignee
+                    if (task.assignee_id) {
+                        setAssigneeId(task.assignee_id);
+                        setAssigneeName(task.assignee_name || '');
+                    } else {
+                        setAssigneeId(null);
+                        setAssigneeName('');
+                    }
                 } catch (error) {
                     console.error('Error loading dependencies:', error);
                 } finally {
@@ -90,7 +111,17 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
 
         setLoading(true);
         try {
-            await api.updateTask(task.id, formData);
+            // Handle assignee
+            let finalAssigneeId = assigneeId;
+            if (assigneeName.trim()) {
+                // Get or create assignee
+                const assigneeResult = await api.getOrCreateAssignee(assigneeName.trim());
+                finalAssigneeId = assigneeResult.id;
+            } else {
+                finalAssigneeId = null;
+            }
+
+            await api.updateTask(task.id, { ...formData, assignee_id: finalAssigneeId });
 
             // If status changed here, we should ensure consistency
             if (task.status !== formData.status) {
@@ -110,6 +141,23 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
             setErrorMessage(`Error al actualizar tarea: ${error.message || 'Error desconocido'}`);
         }
         setLoading(false);
+    };
+
+    const handleDelete = async () => {
+        if (!window.confirm('¿Estás seguro de que quieres eliminar esta tarea? Esta acción no se puede deshacer.')) {
+            return;
+        }
+
+        setIsDeleting(true);
+        try {
+            await api.deleteTask(task.id);
+            onUpdate();
+            onClose();
+        } catch (error: any) {
+            console.error('Error deleting task:', error);
+            setErrorMessage(`Error al eliminar tarea: ${error.message || 'Error desconocido'}`);
+        }
+        setIsDeleting(false);
     };
 
     if (!isOpen || !task) return null;
@@ -365,9 +413,9 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                 display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
             }}>
                 <div className="glass-panel" style={{
-                    width: '800px', // Wider modal
-                    maxWidth: '90vw',
-                    height: '80vh',
+                    width: '1000px',
+                    maxWidth: '95vw',
+                    height: '88vh',
                     display: 'flex',
                     flexDirection: 'column',
                     background: 'var(--bg-panel)',
@@ -451,7 +499,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                         </div>
 
                         {/* Sidebar (Right) */}
-                        <div style={{ flex: 1, padding: 'var(--space-lg)', background: 'rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto' }}>
+                        <div style={{ flex: 1, padding: 'var(--space-lg)', background: 'rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto', maxHeight: '100%' }}>
 
                             {/* Status */}
                             <div>
@@ -485,6 +533,84 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                                     />
                                     <Calendar size={16} style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--text-muted)' }} />
                                 </div>
+                            </div>
+
+                            {/* Assignee */}
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Asignado a</label>
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        type="text"
+                                        list="assignees-datalist"
+                                        value={assigneeName}
+                                        onChange={(e) => {
+                                            setAssigneeName(e.target.value);
+                                            // Find matching assignee to set ID
+                                            const matchingAssignee = assignees.find(a => a.name.toLowerCase() === e.target.value.toLowerCase());
+                                            if (matchingAssignee) {
+                                                setAssigneeId(matchingAssignee.id);
+                                            } else {
+                                                setAssigneeId(null);
+                                            }
+                                        }}
+                                        placeholder="Escribe un nombre..."
+                                        style={{
+                                            width: '100%',
+                                            padding: '10px',
+                                            paddingRight: assigneeName ? '40px' : '10px',
+                                            background: 'var(--bg-input)',
+                                            border: '1px solid var(--border-color)',
+                                            color: 'white',
+                                            borderRadius: '6px'
+                                        }}
+                                    />
+                                    {assigneeName && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setAssigneeName('');
+                                                setAssigneeId(null);
+                                            }}
+                                            style={{
+                                                position: 'absolute',
+                                                right: '8px',
+                                                top: '50%',
+                                                transform: 'translateY(-50%)',
+                                                background: 'rgba(255,255,255,0.1)',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                width: '24px',
+                                                height: '24px',
+                                                cursor: 'pointer',
+                                                color: 'var(--text-muted)',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                fontSize: '14px'
+                                            }}
+                                            title="Limpiar asignado"
+                                        >
+                                            ✕
+                                        </button>
+                                    )}
+                                </div>
+                                <datalist id="assignees-datalist">
+                                    {assignees
+                                        .filter(assignee => assignee.name.toLowerCase() !== assigneeName.toLowerCase())
+                                        .map(assignee => (
+                                            <option key={assignee.id} value={assignee.name} />
+                                        ))}
+                                </datalist>
+                                {assigneeName && !assignees.find(a => a.name.toLowerCase() === assigneeName.toLowerCase()) && (
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: '4px', fontStyle: 'italic' }}>
+                                        ✨ Se creará "{assigneeName}"
+                                    </div>
+                                )}
+                                {!assigneeName && assignees.length > 0 && (
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', fontStyle: 'italic' }}>
+                                        💡 Escribe para ver sugerencias o crear uno nuevo
+                                    </div>
+                                )}
                             </div>
 
 
@@ -638,27 +764,77 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                                 </div>
                             )}
 
-                            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                            <div style={{ display: 'flex', gap: '12px', marginTop: '20px', alignItems: 'center' }}>
+                                <button
+                                    type="button"
+                                    onClick={handleDelete}
+                                    disabled={isDeleting || loading}
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        color: isDeleting ? '#ef4444' : 'var(--text-muted)',
+                                        cursor: (isDeleting || loading) ? 'not-allowed' : 'pointer',
+                                        fontSize: '0.85rem',
+                                        opacity: (isDeleting || loading) ? 0.7 : 1,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        padding: '4px',
+                                        transition: 'color 0.2s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        if (!isDeleting && !loading) {
+                                            e.currentTarget.style.color = '#ef4444';
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (!isDeleting && !loading) {
+                                            e.currentTarget.style.color = 'var(--text-muted)';
+                                        }
+                                    }}
+                                    title="Eliminar tarea permanentemente"
+                                >
+                                    {isDeleting && <span className="spinner" style={{
+                                        width: '12px',
+                                        height: '12px',
+                                        border: '2px solid rgba(239, 68, 68, 0.3)',
+                                        borderTopColor: '#ef4444',
+                                        borderRadius: '50%',
+                                        animation: 'spin 1s linear infinite'
+                                    }}></span>}
+                                    {isDeleting ? 'Eliminando...' : 'Eliminar'}
+                                </button>
+                                <div style={{ flex: 1 }} />
                                 <button
                                     onClick={onClose}
-                                    style={{ flex: 1, padding: '10px', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-secondary)', borderRadius: '6px', cursor: 'pointer' }}
+                                    style={{
+                                        padding: '12px 24px',
+                                        background: 'transparent',
+                                        border: '1px solid var(--border-color)',
+                                        color: 'var(--text-secondary)',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        fontSize: '0.95rem',
+                                        minWidth: '100px'
+                                    }}
                                 >
                                     Cancelar
                                 </button>
                                 <button
                                     onClick={() => handleSubmit()}
-                                    disabled={loading}
+                                    disabled={loading || isDeleting}
                                     style={{
-                                        flex: 1,
-                                        padding: '10px',
+                                        padding: '12px 24px',
                                         background: 'var(--primary)',
                                         border: 'none',
                                         color: 'white',
                                         borderRadius: '6px',
-                                        cursor: loading ? 'not-allowed' : 'pointer',
+                                        cursor: (loading || isDeleting) ? 'not-allowed' : 'pointer',
                                         fontWeight: 'bold',
-                                        opacity: loading ? 0.7 : 1,
+                                        opacity: (loading || isDeleting) ? 0.7 : 1,
                                         display: 'flex',
+                                        fontSize: '0.95rem',
+                                        minWidth: '100px',
                                         justifyContent: 'center',
                                         alignItems: 'center',
                                         gap: '8px'

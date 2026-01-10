@@ -7,12 +7,14 @@ export const getAllTasks = async (req: Request, res: Response) => {
             SELECT t.*, o.description as objective_title, p.name as project_name,
                    n.name as node_name,
                    n.color as node_color,
+                   a.name as assignee_name,
                    (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count,
                    (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes
             FROM tasks t
             JOIN objectives o ON t.objective_id = o.id
             LEFT JOIN projects p ON t.project_id = p.id
             LEFT JOIN nodes n ON o.node_id = n.id
+            LEFT JOIN assignees a ON t.assignee_id = a.id
             ORDER BY t.priority_score DESC
         `;
         const result = await db.query(query);
@@ -32,12 +34,14 @@ export const getTaskById = async (req: Request, res: Response) => {
                    p.name as project_name,
                    n.name as node_name,
                    n.color as node_color,
+                   a.name as assignee_name,
                    (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count,
                    (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes
             FROM tasks t
             JOIN objectives o ON t.objective_id = o.id
             LEFT JOIN projects p ON t.project_id = p.id
             LEFT JOIN nodes n ON o.node_id = n.id
+            LEFT JOIN assignees a ON t.assignee_id = a.id
             WHERE t.id = $1
         `;
         const result = await db.query(query, [id]);
@@ -58,11 +62,13 @@ export const getTasksByObjective = async (req: Request, res: Response) => {
             SELECT t.*, 
                    o.description as objective_title,
                    p.name as project_name,
+                   a.name as assignee_name,
                    (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count,
                    (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes
             FROM tasks t
             JOIN objectives o ON t.objective_id = o.id
             LEFT JOIN projects p ON t.project_id = p.id
+            LEFT JOIN assignees a ON t.assignee_id = a.id
             WHERE t.objective_id = $1
             ORDER BY t.priority_score DESC
         `;
@@ -83,12 +89,14 @@ export const getTasksByProject = async (req: Request, res: Response) => {
                    p.name as project_name,
                    n.name as node_name,
                    n.color as node_color,
+                   a.name as assignee_name,
                    (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count,
                    (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes
             FROM tasks t
             JOIN objectives o ON t.objective_id = o.id
             LEFT JOIN projects p ON t.project_id = p.id
             LEFT JOIN nodes n ON o.node_id = n.id
+            LEFT JOIN assignees a ON t.assignee_id = a.id
             WHERE t.project_id = $1
             ORDER BY t.priority_score DESC
         `;
@@ -109,12 +117,14 @@ export const getTasksByWeek = async (req: Request, res: Response) => {
                    p.name as project_name,
                    n.name as node_name,
                    n.color as node_color,
+                   a.name as assignee_name,
                    (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count,
                    (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes
             FROM tasks t
             JOIN objectives o ON t.objective_id = o.id
             LEFT JOIN projects p ON t.project_id = p.id
             LEFT JOIN nodes n ON o.node_id = n.id
+            LEFT JOIN assignees a ON t.assignee_id = a.id
             WHERE t.week_number = $1
             ORDER BY t.priority_score DESC
         `;
@@ -127,14 +137,14 @@ export const getTasksByWeek = async (req: Request, res: Response) => {
 };
 
 export const createTask = async (req: Request, res: Response) => {
-    const { title, description, objective_id, status, weight, priority_score, evidence_url, target_date, project_id } = req.body;
+    const { title, description, objective_id, status, weight, priority_score, evidence_url, target_date, project_id, assignee_id } = req.body;
     try {
         const query = `
-            INSERT INTO tasks (title, description, objective_id, status, weight, priority_score, evidence_url, target_date, project_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            INSERT INTO tasks (title, description, objective_id, status, weight, priority_score, evidence_url, target_date, project_id, assignee_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             RETURNING *
         `;
-        const values = [title, description, objective_id, status || 'Backlog', weight || 1, priority_score || 0, evidence_url, target_date, project_id];
+        const values = [title, description, objective_id, status || 'Backlog', weight || 1, priority_score || 0, evidence_url, target_date, project_id, assignee_id || null];
         const result = await db.query(query, values);
         res.status(201).json(result.rows[0]);
     } catch (error) {
@@ -145,7 +155,7 @@ export const createTask = async (req: Request, res: Response) => {
 
 export const updateTask = async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { title, description, status, priority_score, objective_id, target_date, evidence_url } = req.body;
+    const { title, description, status, priority_score, objective_id, target_date, evidence_url, assignee_id } = req.body;
     try {
         const query = `
             UPDATE tasks
@@ -155,8 +165,9 @@ export const updateTask = async (req: Request, res: Response) => {
                 priority_score = COALESCE($4, priority_score),
                 objective_id = COALESCE($5, objective_id),
                 target_date = COALESCE($6, target_date),
-                evidence_url = COALESCE($7, evidence_url)
-            WHERE id = $8
+                evidence_url = COALESCE($7, evidence_url),
+                assignee_id = $8
+            WHERE id = $9
             RETURNING *
         `;
         const values = [
@@ -167,6 +178,7 @@ export const updateTask = async (req: Request, res: Response) => {
             objective_id || null, // Convert empty string to null for UUID
             target_date || null,  // Convert empty string to null for DATE
             evidence_url,
+            assignee_id !== undefined ? (assignee_id || null) : undefined,
             id
         ];
         const result = await db.query(query, values);

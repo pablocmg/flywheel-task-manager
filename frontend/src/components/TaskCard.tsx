@@ -16,6 +16,7 @@ interface Task {
     project_name?: string;
     week_number?: number;
     node_color?: string;
+    assignee_name?: string;
 }
 
 interface TaskCardProps {
@@ -131,6 +132,23 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, nodeColors }) 
                         <a href={task.evidence_url} target="_blank" rel="noreferrer" style={{ color: 'var(--primary-light)', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }} title="Ver Evidencia">
                             <ExternalLink size={14} /> Evidencia
                         </a>
+                    )}
+
+                    {/* Assignee Badge */}
+                    {task.assignee_name && (
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            background: 'rgba(147, 51, 234, 0.15)',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            fontSize: '0.75rem',
+                            color: '#a78bfa',
+                            fontWeight: 500
+                        }}>
+                            👤 {task.assignee_name}
+                        </div>
                     )}
                 </div>
             </div>

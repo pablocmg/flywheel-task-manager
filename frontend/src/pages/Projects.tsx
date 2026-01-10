@@ -36,6 +36,7 @@ interface Task {
     objective_id?: string;
     objective_title?: string;
     target_date?: string;
+    assignee_name?: string;
 }
 
 const Projects: React.FC = () => {
@@ -367,7 +368,12 @@ const Projects: React.FC = () => {
                                                             </div>
                                                             {task.target_date && (
                                                                 <div style={{ fontSize: '0.7rem', color: 'var(--primary)', marginTop: '2px' }}>
-                                                                    � Fecha fin: {new Date(task.target_date).toLocaleDateString()}
+                                                                    🎯 Fecha fin: {new Date(task.target_date).toLocaleDateString()}
+                                                                </div>
+                                                            )}
+                                                            {task.assignee_name && (
+                                                                <div style={{ fontSize: '0.7rem', color: '#a78bfa', marginTop: '2px' }}>
+                                                                    👤 Asignado a: {task.assignee_name}
                                                                 </div>
                                                             )}
                                                         </div>
