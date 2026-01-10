@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
-import dotenv from 'dotenv';
 
-dotenv.config();
+// Don't use dotenv.config() in serverless - env vars are injected by platform
+// For local dev, use .env files normally
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
