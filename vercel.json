@@ -4,6 +4,11 @@
     "devCommand": "cd frontend && npm run dev",
     "outputDirectory": "frontend/dist",
     "framework": null,
+    "functions": {
+        "api/index.js": {
+            "includeFiles": "backend/dist/**"
+        }
+    },
     "rewrites": [
         {
             "source": "/api/:path*",
