@@ -3,14 +3,14 @@ const cors = require('cors');
 const helmet = require('helmet');
 
 // Import Routes - using require for serverless compatibility
-const nodesRoutes = require('../backend/dist/routes/nodes.routes');
-const objectivesRoutes = require('../backend/dist/routes/objectives.routes');
-const objectiveGroupsRoutes = require('../backend/dist/routes/objectiveGroups.routes');
-const tasksRoutes = require('../backend/dist/routes/tasks.routes');
-const interactionsRoutes = require('../backend/dist/routes/interactions.routes');
-const projectsRoutes = require('../backend/dist/routes/projects.routes');
-const keyResultsRoutes = require('../backend/dist/routes/key_results.routes');
-const assigneesRoutes = require('../backend/dist/routes/assignees.routes');
+const nodesRoutes = require('./backend/routes/nodes.routes');
+const objectivesRoutes = require('./backend/routes/objectives.routes');
+const objectiveGroupsRoutes = require('./backend/routes/objectiveGroups.routes');
+const tasksRoutes = require('./backend/routes/tasks.routes');
+const interactionsRoutes = require('./backend/routes/interactions.routes');
+const projectsRoutes = require('./backend/routes/projects.routes');
+const keyResultsRoutes = require('./backend/routes/key_results.routes');
+const assigneesRoutes = require('./backend/routes/assignees.routes');
 
 const app = express();
 
