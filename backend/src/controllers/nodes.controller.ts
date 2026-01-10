@@ -3,11 +3,15 @@ import * as db from '../db';
 
 export const getAllNodes = async (req: Request, res: Response) => {
     try {
+        console.log('[getAllNodes] Starting query...');
+        console.log('[getAllNodes] DATABASE_URL exists:', !!process.env.DATABASE_URL);
         const result = await db.query('SELECT * FROM nodes ORDER BY created_at ASC');
+        console.log('[getAllNodes] Query successful, rows:', result.rows.length);
         res.json(result.rows);
     } catch (error) {
-        console.error('Error fetching nodes:', error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        console.error('[getAllNodes] Error fetching nodes:', error);
+        console.error('[getAllNodes] Error details:', JSON.stringify(error, null, 2));
+        res.status(500).json({ error: 'Internal Server Error', details: error instanceof Error ? error.message : 'Unknown error' });
     }
 };
 
