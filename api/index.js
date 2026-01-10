@@ -28,6 +28,16 @@ app.use('/api/projects', projectsRoutes.default || projectsRoutes);
 app.use('/api/key-results', keyResultsRoutes.default || keyResultsRoutes);
 app.use('/api/assignees', assigneesRoutes.default || assigneesRoutes);
 
+// Debug endpoint to check env vars
+app.get('/api/debug', (req, res) => {
+    res.json({
+        hasDbUrl: !!process.env.DATABASE_URL,
+        dbUrlPrefix: process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 20) + '...' : 'MISSING',
+        nodeEnv: process.env.NODE_ENV,
+        vercel: process.env.VERCEL
+    });
+});
+
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
