@@ -1,7 +1,10 @@
 import { Pool } from 'pg';
+import dotenv from 'dotenv';
 
-// Don't use dotenv.config() in serverless - env vars are injected by platform
-// For local dev, use .env files normally
+// Load dotenv only in local development (not on Vercel)
+if (!process.env.VERCEL) {
+    dotenv.config();
+}
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
