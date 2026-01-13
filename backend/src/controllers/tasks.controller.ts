@@ -137,14 +137,14 @@ export const getTasksByWeek = async (req: Request, res: Response) => {
 };
 
 export const createTask = async (req: Request, res: Response) => {
-    const { title, description, objective_id, status, weight, priority_score, evidence_url, target_date, project_id, assignee_id } = req.body;
+    const { title, description, objective_id, status, weight, priority_score, evidence_url, target_date, project_id, assignee_id, complexity } = req.body;
     try {
         const query = `
-            INSERT INTO tasks (title, description, objective_id, status, weight, priority_score, evidence_url, target_date, project_id, assignee_id)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            INSERT INTO tasks (title, description, objective_id, status, weight, priority_score, evidence_url, target_date, project_id, assignee_id, complexity)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             RETURNING *
         `;
-        const values = [title, description, objective_id, status || 'Backlog', weight || 1, priority_score || 0, evidence_url, target_date, project_id, assignee_id || null];
+        const values = [title, description, objective_id, status || 'Backlog', weight || 1, priority_score || 0, evidence_url, target_date, project_id, assignee_id || null, complexity || null];
         const result = await db.query(query, values);
         res.status(201).json(result.rows[0]);
     } catch (error) {
@@ -155,7 +155,7 @@ export const createTask = async (req: Request, res: Response) => {
 
 export const updateTask = async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { title, description, status, priority_score, objective_id, target_date, evidence_url, assignee_id } = req.body;
+    const { title, description, status, priority_score, objective_id, target_date, evidence_url, assignee_id, complexity } = req.body;
     try {
         const query = `
             UPDATE tasks
@@ -166,8 +166,9 @@ export const updateTask = async (req: Request, res: Response) => {
                 objective_id = COALESCE($5, objective_id),
                 target_date = COALESCE($6, target_date),
                 evidence_url = COALESCE($7, evidence_url),
-                assignee_id = $8
-            WHERE id = $9
+                assignee_id = $8,
+                complexity = $9
+            WHERE id = $10
             RETURNING *
         `;
         const values = [
@@ -179,6 +180,7 @@ export const updateTask = async (req: Request, res: Response) => {
             target_date || null,  // Convert empty string to null for DATE
             evidence_url,
             assignee_id !== undefined ? (assignee_id || null) : undefined,
+            complexity !== undefined ? (complexity || null) : undefined,
             id
         ];
         const result = await db.query(query, values);
