@@ -767,280 +767,158 @@ const Execution: React.FC = () => {
 
     return (
         <div style={{ padding: '0 20px', height: '100vh', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '12px', marginTop: '12px', gap: '12px' }}>
-                {/* Create Task Button */}
-                <button
-                    onClick={() => setShowCreateTask(true)}
-                    style={{
-                        padding: '8px 16px',
-                        background: 'var(--primary)',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: 'var(--radius-md)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        fontWeight: 'bold',
-                        transition: 'all 0.2s ease'
-                    }}
-                >
-                    <Plus size={18} />
-                    Nueva Tarea
-                </button>
-
-                {/* Swimlane Mode Toggle */}
-                <button
-                    onClick={cycleSwimlaneMode}
-                    style={{
-                        padding: '8px 16px',
-                        background: swimlaneMode !== 'none' ? 'var(--primary)' : 'var(--glass-bg)',
-                        color: 'white',
-                        border: '1px solid var(--glass-border)',
-                        borderRadius: 'var(--radius-md)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        fontWeight: swimlaneMode !== 'none' ? 'bold' : 'normal'
-                    }}
-                >
-                    {swimlaneMode === 'none' && '📋 Vista Plana'}
-                    {swimlaneMode === 'nodes' && '🎯 Swimlanes por Nodos'}
-                    {swimlaneMode === 'projects' && '📁 Swimlanes por Proyectos'}
-                </button>
-            </div>
-
-            {/* Project Filter Chips */}
-            {allProjects.length > 0 && (
-                <div style={{
-                    display: 'flex',
-                    gap: '8px',
-                    marginBottom: '16px',
-                    flexWrap: 'wrap',
-                    alignItems: 'center'
-                }}>
-                    <span style={{
-                        fontSize: '0.85rem',
-                        color: 'var(--text-muted)',
-                        fontWeight: '600',
-                        marginRight: '4px'
-                    }}>
-                        Filtrar:
-                    </span>
-                    <button
-                        onClick={() => setSelectedProject('all')}
-                        style={{
-                            padding: '6px 14px',
-                            background: selectedProject === 'all' ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-                            color: selectedProject === 'all' ? 'white' : 'var(--text-secondary)',
-                            border: `1px solid ${selectedProject === 'all' ? 'var(--primary)' : 'var(--glass-border)'}`,
-                            borderRadius: '20px',
-                            cursor: 'pointer',
-                            fontSize: '0.85rem',
-                            fontWeight: selectedProject === 'all' ? '600' : '400',
-                            transition: 'all 0.2s ease',
-                            whiteSpace: 'nowrap'
-                        }}
-                    >
-                        Todos
-                    </button>
-                    {allProjects.map(project => (
-                        <button
-                            key={project}
-                            onClick={() => setSelectedProject(project)}
-                            style={{
-                                padding: '6px 14px',
-                                background: selectedProject === project ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-                                color: selectedProject === project ? 'white' : 'var(--text-secondary)',
-                                border: `1px solid ${selectedProject === project ? 'var(--primary)' : 'var(--glass-border)'}`,
-                                borderRadius: '20px',
-                                cursor: 'pointer',
-                                fontSize: '0.85rem',
-                                fontWeight: selectedProject === project ? '600' : '400',
-                                transition: 'all 0.2s ease',
-                                whiteSpace: 'nowrap'
-                            }}
-                        >
-                            {project}
-                        </button>
-                    ))}
-                </div>
-            )}
-
-            {/* Assignee Filter Chips */}
-            {assignees.length > 0 && (
-                <div style={{
-                    display: 'flex',
-                    gap: '8px',
-                    marginBottom: '16px',
-                    flexWrap: 'wrap',
-                    alignItems: 'center'
-                }}>
-                    <span style={{
-                        fontSize: '0.85rem',
-                        color: 'var(--text-muted)',
-                        fontWeight: '600',
-                        marginRight: '4px'
-                    }}>
-                        Asignado a:
-                    </span>
-                    <button
-                        onClick={() => setSelectedAssignee('all')}
-                        style={{
-                            padding: '6px 14px',
-                            background: selectedAssignee === 'all' ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-                            color: selectedAssignee === 'all' ? 'white' : 'var(--text-secondary)',
-                            border: `1px solid ${selectedAssignee === 'all' ? 'var(--primary)' : 'var(--glass-border)'}`,
-                            borderRadius: '20px',
-                            cursor: 'pointer',
-                            fontSize: '0.85rem',
-                            fontWeight: selectedAssignee === 'all' ? '600' : '400',
-                            transition: 'all 0.2s ease',
-                            whiteSpace: 'nowrap'
-                        }}
-                    >
-                        Todos
-                    </button>
-                    <button
-                        onClick={() => setSelectedAssignee(null)}
-                        style={{
-                            padding: '6px 14px',
-                            background: selectedAssignee === null ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-                            color: selectedAssignee === null ? 'white' : 'var(--text-secondary)',
-                            border: `1px solid ${selectedAssignee === null ? 'var(--primary)' : 'var(--glass-border)'}`,
-                            borderRadius: '20px',
-                            cursor: 'pointer',
-                            fontSize: '0.85rem',
-                            fontWeight: selectedAssignee === null ? '600' : '400',
-                            transition: 'all 0.2s ease',
-                            whiteSpace: 'nowrap'
-                        }}
-                    >
-                        Sin asignar
-                    </button>
-                    {assignees.map(assignee => (
-                        <button
-                            key={assignee.id}
-                            onClick={() => setSelectedAssignee(assignee.id)}
-                            style={{
-                                padding: '6px 14px',
-                                background: selectedAssignee === assignee.id ? 'rgba(147, 51, 234, 0.8)' : 'rgba(147, 51, 234, 0.15)',
-                                color: selectedAssignee === assignee.id ? 'white' : '#a78bfa',
-                                border: `1px solid ${selectedAssignee === assignee.id ? '#9333ea' : 'rgba(147, 51, 234, 0.3)'}`,
-                                borderRadius: '20px',
-                                cursor: 'pointer',
-                                fontSize: '0.85rem',
-                                fontWeight: selectedAssignee === assignee.id ? '600' : '400',
-                                transition: 'all 0.2s ease',
-                                whiteSpace: 'nowrap'
-                            }}
-                        >
-                            👤 {assignee.name}
-                        </button>
-                    ))}
-                </div>
-            )}
-
-            {/* Complexity Filter Chips (Multi-select) */}
+            {/* === UNIFIED TOOLBAR: Everything in ONE line === */}
             <div style={{
                 display: 'flex',
-                gap: '8px',
-                marginBottom: '16px',
-                flexWrap: 'wrap',
-                alignItems: 'center'
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '8px 0',
+                gap: '12px',
+                flexWrap: 'wrap'
             }}>
-                <span style={{
-                    fontSize: '0.85rem',
-                    color: 'var(--text-muted)',
-                    fontWeight: '600',
-                    marginRight: '4px'
-                }}>
-                    Complejidad:
-                </span>
-                <button
-                    onClick={() => setSelectedComplexities(new Set())}
-                    style={{
-                        padding: '6px 14px',
-                        background: selectedComplexities.size === 0 ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-                        color: selectedComplexities.size === 0 ? 'white' : 'var(--text-secondary)',
-                        border: `1px solid ${selectedComplexities.size === 0 ? 'var(--primary)' : 'var(--glass-border)'}`,
-                        borderRadius: '20px',
-                        cursor: 'pointer',
-                        fontSize: '0.85rem',
-                        fontWeight: selectedComplexities.size === 0 ? '600' : '400',
-                        transition: 'all 0.2s ease',
-                        whiteSpace: 'nowrap'
-                    }}
-                >
-                    Todos
-                </button>
-                <button
-                    onClick={() => {
-                        const newSet = new Set(selectedComplexities);
-                        if (newSet.has('none')) {
-                            newSet.delete('none');
-                        } else {
-                            newSet.add('none');
-                        }
-                        setSelectedComplexities(newSet);
-                    }}
-                    style={{
-                        padding: '6px 14px',
-                        background: selectedComplexities.has('none') ? 'rgba(156, 163, 175, 0.8)' : 'rgba(156, 163, 175, 0.15)',
-                        color: selectedComplexities.has('none') ? 'white' : '#9ca3af',
-                        border: `1px solid ${selectedComplexities.has('none') ? '#9ca3af' : 'rgba(156, 163, 175, 0.3)'}`,
-                        borderRadius: '20px',
-                        cursor: 'pointer',
-                        fontSize: '0.85rem',
-                        fontWeight: selectedComplexities.has('none') ? '600' : '400',
-                        transition: 'all 0.2s ease',
-                        whiteSpace: 'nowrap'
-                    }}
-                >
-                    Sin definir
-                </button>
-                {(['S', 'M', 'L', 'XL', 'XXL'] as const).map(size => {
-                    const isSelected = selectedComplexities.has(size);
-                    const colors = {
-                        S: { bg: 'rgba(34, 197, 94, 0.15)', bgActive: 'rgba(34, 197, 94, 0.8)', text: '#22c55e', border: 'rgba(34, 197, 94, 0.3)', borderActive: '#22c55e' },
-                        M: { bg: 'rgba(59, 130, 246, 0.15)', bgActive: 'rgba(59, 130, 246, 0.8)', text: '#3b82f6', border: 'rgba(59, 130, 246, 0.3)', borderActive: '#3b82f6' },
-                        L: { bg: 'rgba(249, 115, 22, 0.15)', bgActive: 'rgba(249, 115, 22, 0.8)', text: '#f97316', border: 'rgba(249, 115, 22, 0.3)', borderActive: '#f97316' },
-                        XL: { bg: 'rgba(239, 68, 68, 0.15)', bgActive: 'rgba(239, 68, 68, 0.8)', text: '#ef4444', border: 'rgba(239, 68, 68, 0.3)', borderActive: '#ef4444' },
-                        XXL: { bg: 'rgba(220, 38, 38, 0.15)', bgActive: 'rgba(220, 38, 38, 0.8)', text: '#dc2626', border: 'rgba(220, 38, 38, 0.3)', borderActive: '#dc2626' }
-                    };
-                    const c = colors[size];
-                    return (
+                {/* LEFT: Action Buttons */}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <button
+                        onClick={() => setShowCreateTask(true)}
+                        style={{
+                            padding: '6px 12px',
+                            background: 'var(--primary)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 'var(--radius-md)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            fontWeight: 'bold',
+                            fontSize: '0.85rem'
+                        }}
+                    >
+                        <Plus size={16} />
+                        Nueva Tarea
+                    </button>
+                    <button
+                        onClick={cycleSwimlaneMode}
+                        style={{
+                            padding: '6px 12px',
+                            background: swimlaneMode !== 'none' ? 'var(--primary)' : 'rgba(255,255,255,0.08)',
+                            color: 'white',
+                            border: '1px solid var(--glass-border)',
+                            borderRadius: 'var(--radius-md)',
+                            cursor: 'pointer',
+                            fontSize: '0.8rem',
+                            fontWeight: swimlaneMode !== 'none' ? '600' : '400'
+                        }}
+                    >
+                        {swimlaneMode === 'none' && ' Plana'}
+                        {swimlaneMode === 'nodes' && ' Nodos'}
+                        {swimlaneMode === 'projects' && ' Proyectos'}
+                    </button>
+                </div>
+
+                {/* RIGHT: All Filters inline */}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {/* Project Filter - Dropdown */}
+                    {allProjects.length > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>📁 Proyecto:</span>
+                            <select
+                                value={selectedProject}
+                                onChange={(e) => setSelectedProject(e.target.value)}
+                                style={{
+                                    padding: '5px 8px',
+                                    background: 'var(--bg-card)',
+                                    color: 'white',
+                                    border: '1px solid var(--glass-border)',
+                                    borderRadius: '6px',
+                                    fontSize: '0.8rem',
+                                    cursor: 'pointer',
+                                    minWidth: '120px'
+                                }}
+                            >
+                                <option value="all"> Todos</option>
+                                {allProjects.map(project => (
+                                    <option key={project} value={project}>{project}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
+                    {/* Assignee Filter - Dropdown */}
+                    {assignees.length > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>👤 Asignado:</span>
+                            <select
+                                value={selectedAssignee || 'all'}
+                                onChange={(e) => setSelectedAssignee(e.target.value)}
+                                style={{
+                                    padding: '5px 8px',
+                                    background: 'var(--bg-card)',
+                                    color: 'white',
+                                    border: '1px solid var(--glass-border)',
+                                    borderRadius: '6px',
+                                    fontSize: '0.8rem',
+                                    cursor: 'pointer',
+                                    minWidth: '100px'
+                                }}
+                            >
+                                <option value="all"> Todos</option>
+                                <option value="unassigned">Sin asignar</option>
+                                {assignees.map(a => (
+                                    <option key={a.id} value={a.id}>{a.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
+                    {/* Complexity Filter - Compact Chips */}
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginRight: '2px' }}>📐 Talla:</span>
                         <button
-                            key={size}
-                            onClick={() => {
-                                const newSet = new Set(selectedComplexities);
-                                if (newSet.has(size)) {
-                                    newSet.delete(size);
-                                } else {
-                                    newSet.add(size);
-                                }
-                                setSelectedComplexities(newSet);
-                            }}
+                            onClick={() => setSelectedComplexities(new Set())}
                             style={{
-                                padding: '6px 14px',
-                                background: isSelected ? c.bgActive : c.bg,
-                                color: isSelected ? 'white' : c.text,
-                                border: `1px solid ${isSelected ? c.borderActive : c.border}`,
-                                borderRadius: '20px',
+                                padding: '3px 8px',
+                                background: selectedComplexities.size === 0 ? 'var(--primary)' : 'rgba(255,255,255,0.08)',
+                                color: selectedComplexities.size === 0 ? 'white' : 'var(--text-muted)',
+                                border: 'none',
+                                borderRadius: '12px',
                                 cursor: 'pointer',
-                                fontSize: '0.85rem',
-                                fontWeight: isSelected ? '600' : '400',
-                                transition: 'all 0.2s ease',
-                                whiteSpace: 'nowrap'
+                                fontSize: '0.75rem',
+                                fontWeight: selectedComplexities.size === 0 ? '600' : '400'
                             }}
                         >
-                            {size}
+                            All
                         </button>
-                    );
-                })}
+                        {(['S', 'M', 'L', 'XL', 'XXL'] as const).map(size => {
+                            const isSelected = selectedComplexities.has(size);
+                            const colors: Record<string, string> = { S: '#22c55e', M: '#3b82f6', L: '#f97316', XL: '#ef4444', XXL: '#dc2626' };
+                            return (
+                                <button
+                                    key={size}
+                                    onClick={() => {
+                                        const newSet = new Set(selectedComplexities);
+                                        if (newSet.has(size)) newSet.delete(size);
+                                        else newSet.add(size);
+                                        setSelectedComplexities(newSet);
+                                    }}
+                                    style={{
+                                        padding: '3px 8px',
+                                        background: isSelected ? colors[size] : 'rgba(255,255,255,0.08)',
+                                        color: isSelected ? 'white' : colors[size],
+                                        border: 'none',
+                                        borderRadius: '12px',
+                                        cursor: 'pointer',
+                                        fontSize: '0.75rem',
+                                        fontWeight: isSelected ? '600' : '400'
+                                    }}
+                                >
+                                    {size}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
             </div>
-
             <DndContext
                 sensors={sensors}
                 collisionDetection={closestCorners}
