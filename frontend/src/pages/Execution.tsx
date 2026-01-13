@@ -797,6 +797,7 @@ const Execution: React.FC = () => {
                         <Plus size={16} />
                         Nueva Tarea
                     </button>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Vista:</span>
                     <button
                         onClick={cycleSwimlaneMode}
                         style={{
