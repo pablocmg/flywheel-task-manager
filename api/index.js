@@ -1,3 +1,6 @@
+// Load environment variables in serverless environment
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -14,11 +17,20 @@ const assigneesRoutes = require('./backend/routes/assignees.routes');
 
 const app = express();
 
-app.use(cors());
-app.use(helmet());
+// CORS configuration for Vercel
+app.use(cors({
+    origin: process.env.CORS_ORIGIN || '*',
+    credentials: true
+}));
+
+// Helmet with relaxed CSP for Vercel
+app.use(helmet({
+    contentSecurityPolicy: false
+}));
+
 app.use(express.json());
 
-// Mount Routes
+// Mount Routes - handle both default and direct exports
 app.use('/api/nodes', nodesRoutes.default || nodesRoutes);
 app.use('/api/objectives', objectivesRoutes.default || objectivesRoutes);
 app.use('/api/objective-groups', objectiveGroupsRoutes.default || objectiveGroupsRoutes);
@@ -34,7 +46,8 @@ app.get('/api/debug', (req, res) => {
         hasDbUrl: !!process.env.DATABASE_URL,
         dbUrlPrefix: process.env.DATABASE_URL ? process.env.DATABASE_URL.substring(0, 20) + '...' : 'MISSING',
         nodeEnv: process.env.NODE_ENV,
-        vercel: process.env.VERCEL
+        vercel: process.env.VERCEL,
+        corsOrigin: process.env.CORS_ORIGIN || 'not set'
     });
 });
 
@@ -42,5 +55,14 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Export for Vercel serverless
+// Root handler for Vercel
+app.get('/api', (req, res) => {
+    res.json({
+        message: 'Flywheel Task Manager API',
+        version: '1.0.0',
+        endpoints: ['/api/health', '/api/debug', '/api/nodes', '/api/objectives', '/api/tasks']
+    });
+});
+
+// Export for Vercel serverless - Vercel expects the handler to be exported directly
 module.exports = app;

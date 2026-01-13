@@ -6,6 +6,7 @@ package-lock.json
 .env
 .env.local
 .env.*.local
+# Allow .env.production to be committed (no secrets)
 
 # Build outputs
 dist/
