@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { X, Calendar } from 'lucide-react';
+import { X, Calendar, ExternalLink, ArrowLeft, AlertTriangle } from 'lucide-react';
 
 interface TaskEditModalProps {
     isOpen: boolean;
     onClose: () => void;
     task: any; // Using any for flexibility or reuse Task interface
     onUpdate: () => void;
-
+    onNavigateToTask?: (task: any) => void;
+    onGoBack?: () => void;
+    canGoBack?: boolean;
 }
 
 // Full Detail Card Modal
-export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, task, onUpdate }) => {
+export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, task, onUpdate, onNavigateToTask, onGoBack, canGoBack }) => {
     const [formData, setFormData] = useState({
         title: '',
         description: '',
@@ -22,6 +24,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
         evidence_url: '',
         complexity: '' as string,
         is_waiting_third_party: false,
+        blocking_reason: '',
     });
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -46,6 +49,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
 
     // Delete state
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
     useEffect(() => {
         if (task) {
@@ -58,8 +62,10 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                 target_date: task.target_date ? task.target_date.split('T')[0] : '',
                 evidence_url: task.evidence_url || '',
                 complexity: task.complexity || '',
-                is_waiting_third_party: task.is_waiting_third_party || false
+                is_waiting_third_party: task.is_waiting_third_party || false,
+                blocking_reason: task.blocking_reason || ''
             });
+            setIsConfirmingDelete(false); // Reset delete confirmation state
 
             // Set default project for dependency editors
             setSelectedProjectForDeps(task.project_id || '');
@@ -147,19 +153,21 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
         setLoading(false);
     };
 
-    const handleDelete = async () => {
-        if (!window.confirm('¿Estás seguro de que quieres eliminar esta tarea? Esta acción no se puede deshacer.')) {
-            return;
-        }
+    const handleDelete = () => {
+        setIsConfirmingDelete(true);
+    };
 
+    const executeDelete = async () => {
         setIsDeleting(true);
         try {
             await api.deleteTask(task.id);
+            setIsConfirmingDelete(false); // Reset state
             onUpdate();
             onClose();
         } catch (error: any) {
             console.error('Error deleting task:', error);
             setErrorMessage(`Error al eliminar tarea: ${error.message || 'Error desconocido'}`);
+            setIsConfirmingDelete(false); // Reset on error too to show message
         }
         setIsDeleting(false);
     };
@@ -209,10 +217,34 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                 padding: '40px'
             }}>
                 {/* Header */}
-                <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h2 style={{ margin: 0, color: 'white' }}>
-                        {isDependsOn ? 'Seleccionar Dependencias' : 'Seleccionar Tareas Habilitadas'}
-                    </h2>
+                <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
+                    {/* Back Button (History) */}
+                    {canGoBack && onGoBack && (
+                        <button
+                            onClick={onGoBack}
+                            style={{
+                                position: 'absolute',
+                                left: '-50px', // Outside the content area to the left, or adjusts based on design
+                                opacity: 0.7,
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'white',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                transition: 'opacity 0.2s'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                            onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+                            title="Volver a la tarea anterior"
+                        >
+                            <ArrowLeft size={24} />
+                        </button>
+                    )}
+
+                    <div style={{ flex: 1 }}> {/* Spacer or Title Area if we want to move content */} </div>
+
                     <button
                         onClick={() => setIsEditing(false)}
                         style={{
@@ -417,508 +449,709 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                 display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
             }}>
                 <div className="glass-panel" style={{
-                    width: '1000px',
+                    width: isConfirmingDelete ? '450px' : '1000px',
                     maxWidth: '95vw',
-                    height: '88vh',
+                    height: isConfirmingDelete ? 'auto' : '88vh',
+                    maxHeight: '90vh',
                     display: 'flex',
                     flexDirection: 'column',
                     background: 'var(--bg-panel)',
                     position: 'relative',
                     border: '1px solid var(--glass-border)',
-                    borderRadius: '12px',
-                    overflow: 'hidden'
+                    borderRadius: '16px',
+                    overflow: 'hidden',
+                    transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
                 }}>
-                    {/* Header */}
-                    <div style={{
-                        padding: 'var(--space-md)',
-                        borderBottom: '1px solid var(--glass-border)',
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'
-                    }}>
-                        <div style={{ flex: 1 }}>
-                            <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                                {/* Project Badge */}
-                                {task.project_name && (
-                                    <span style={{ background: 'rgba(96, 165, 250, 0.2)', color: '#60a5fa', padding: '2px 8px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                                        {task.project_name}
-                                    </span>
-                                )}
-                                {/* Objective Label */}
-                                {task.objective_title && (
-                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}>
-                                        • {task.objective_title}
-                                    </span>
-                                )}
+                    {isConfirmingDelete ? (
+                        <div style={{
+                            padding: '40px 32px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                            gap: '20px'
+                        }}>
+                            <div style={{
+                                width: '64px',
+                                height: '64px',
+                                borderRadius: '50%',
+                                background: 'rgba(239, 68, 68, 0.1)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#ef4444',
+                                marginBottom: '4px'
+                            }}>
+                                <AlertTriangle size={32} />
                             </div>
-                            <input
-                                value={formData.title}
-                                onChange={e => setFormData({ ...formData, title: e.target.value })}
-                                style={{
-                                    width: '100%',
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: 'white',
-                                    fontSize: '1.5rem',
-                                    fontWeight: 'bold',
-                                    outline: 'none'
-                                }}
-                                placeholder="Título de la tarea"
-                                required
-                            />
-                        </div>
-                        <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                            <X size={24} />
-                        </button>
-                    </div>
-
-                    {/* Body - Grid Layout */}
-                    <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-
-                        {/* Main Content (Left) */}
-                        <div style={{ flex: 2, padding: 'var(--space-lg)', borderRight: '1px solid var(--glass-border)', overflowY: 'auto' }}>
-                            <form id="taskForm" onSubmit={handleSubmit}>
-                                <h4 style={{ color: 'var(--text-secondary)', marginTop: 0 }}>Descripción</h4>
-                                <textarea
-                                    value={formData.description}
-                                    onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                    style={{
-                                        width: '100%', minHeight: '200px',
-                                        background: 'rgba(255,255,255,0.05)', border: 'none',
-                                        color: 'var(--text-primary)', borderRadius: '8px', padding: '12px',
-                                        fontSize: '1rem', lineHeight: '1.5',
-                                        resize: 'vertical'
-                                    }}
-                                    placeholder="Describe la tarea detalladamente..."
-                                />
-
-                                <div style={{ marginTop: '20px' }}>
-                                    <h4 style={{ color: 'var(--text-secondary)' }}>Evidencia</h4>
-                                    <input
-                                        value={formData.evidence_url}
-                                        onChange={e => setFormData({ ...formData, evidence_url: e.target.value })}
-                                        placeholder="URL de evidencia (Notion, Drive, etc.)"
-                                        style={{ width: '100%', padding: '10px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '6px' }}
-                                    />
-                                </div>
-                            </form>
-                        </div>
-
-                        {/* Sidebar (Right) */}
-                        <div style={{ flex: 1, padding: 'var(--space-lg)', background: 'rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto', maxHeight: '100%' }}>
-
-                            {/* Status */}
                             <div>
-                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Estado</label>
-                                <select
-                                    value={formData.status}
-                                    onChange={e => setFormData({ ...formData, status: e.target.value })}
-                                    style={{
-                                        width: '100%', padding: '10px',
-                                        background: 'var(--bg-card)', color: 'white',
-                                        border: '1px solid var(--border-color)', borderRadius: '6px'
-                                    }}
-                                >
-                                    <option value="Backlog">Backlog</option>
-                                    <option value="Todo">Por Iniciar</option>
-                                    <option value="Doing">En Progreso</option>
-                                    <option value="Waiting">Bloqueado / Esperando</option>
-                                    <option value="Done">Terminada</option>
-                                </select>
-                            </div>
+                                <h2 style={{ fontSize: '1.25rem', marginBottom: '12px', fontWeight: 600 }}>¿Eliminar Tarea?</h2>
+                                <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: '1.5', margin: 0 }}>
+                                    Estás a punto de eliminar <strong style={{ color: 'white' }}>"{task.title}"</strong>.
+                                </p>
 
-                            {/* Waiting for Third Party Toggle */}
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'rgba(245, 158, 11, 0.1)', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
-                                <div>
-                                    <label style={{ display: 'block', color: '#F59E0B', fontSize: '0.9rem', fontWeight: 500 }}>Esperando a terceros</label>
-                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Tarea pausada por respuesta externa</span>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setFormData({ ...formData, is_waiting_third_party: !formData.is_waiting_third_party })}
-                                    style={{
-                                        width: '44px',
-                                        height: '24px',
-                                        borderRadius: '12px',
-                                        border: 'none',
-                                        background: formData.is_waiting_third_party ? '#F59E0B' : 'rgba(255,255,255,0.2)',
-                                        cursor: 'pointer',
-                                        position: 'relative',
-                                        transition: 'background 0.2s ease'
-                                    }}
-                                >
-                                    <div style={{
-                                        width: '18px',
-                                        height: '18px',
-                                        borderRadius: '50%',
-                                        background: 'white',
-                                        position: 'absolute',
-                                        top: '3px',
-                                        left: formData.is_waiting_third_party ? '23px' : '3px',
-                                        transition: 'left 0.2s ease'
-                                    }} />
-                                </button>
-                            </div>
-
-                            {/* Complexity */}
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Complejidad</label>
-                                <select
-                                    value={formData.complexity}
-                                    onChange={e => setFormData({ ...formData, complexity: e.target.value })}
-                                    style={{
-                                        width: '100%', padding: '10px',
-                                        background: 'var(--bg-card)', color: 'white',
-                                        border: '1px solid var(--border-color)', borderRadius: '6px'
-                                    }}
-                                >
-                                    <option value="">Sin definir</option>
-                                    <option value="S">S - Pequeña</option>
-                                    <option value="M">M - Mediana</option>
-                                    <option value="L">L - Grande</option>
-                                    <option value="XL">XL - Muy Grande</option>
-                                    <option value="XXL">XXL - Enorme</option>
-                                </select>
-                            </div>
-
-                            {/* Date */}
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Fecha Objetivo</label>
-                                <div style={{ position: 'relative' }}>
-                                    <input
-                                        type="date"
-                                        value={formData.target_date}
-                                        onChange={e => setFormData({ ...formData, target_date: e.target.value })}
-                                        style={{ width: '100%', padding: '10px', paddingLeft: '34px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '6px' }}
-                                    />
-                                    <Calendar size={16} style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--text-muted)' }} />
-                                </div>
-                            </div>
-
-                            {/* Assignee */}
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Asignado a</label>
-                                <div style={{ position: 'relative' }}>
-                                    <input
-                                        type="text"
-                                        list="assignees-datalist"
-                                        value={assigneeName}
-                                        onChange={(e) => {
-                                            setAssigneeName(e.target.value);
-                                            // Find matching assignee to set ID
-                                            const matchingAssignee = assignees.find(a => a.name.toLowerCase() === e.target.value.toLowerCase());
-                                            if (matchingAssignee) {
-                                                setAssigneeId(matchingAssignee.id);
-                                            } else {
-                                                setAssigneeId(null);
-                                            }
-                                        }}
-                                        placeholder="Escribe un nombre..."
-                                        style={{
-                                            width: '100%',
-                                            padding: '10px',
-                                            paddingRight: assigneeName ? '40px' : '10px',
-                                            background: 'var(--bg-input)',
-                                            border: '1px solid var(--border-color)',
-                                            color: 'white',
-                                            borderRadius: '6px'
-                                        }}
-                                    />
-                                    {assigneeName && (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setAssigneeName('');
-                                                setAssigneeId(null);
-                                            }}
-                                            style={{
-                                                position: 'absolute',
-                                                right: '8px',
-                                                top: '50%',
-                                                transform: 'translateY(-50%)',
-                                                background: 'rgba(255,255,255,0.1)',
-                                                border: 'none',
-                                                borderRadius: '4px',
-                                                width: '24px',
-                                                height: '24px',
-                                                cursor: 'pointer',
-                                                color: 'var(--text-muted)',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                fontSize: '14px'
-                                            }}
-                                            title="Limpiar asignado"
-                                        >
-                                            ✕
-                                        </button>
-                                    )}
-                                </div>
-                                <datalist id="assignees-datalist">
-                                    {assignees
-                                        .filter(assignee => assignee.name.toLowerCase() !== assigneeName.toLowerCase())
-                                        .map(assignee => (
-                                            <option key={assignee.id} value={assignee.name} />
-                                        ))}
-                                </datalist>
-                                {assigneeName && !assignees.find(a => a.name.toLowerCase() === assigneeName.toLowerCase()) && (
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: '4px', fontStyle: 'italic' }}>
-                                        ✨ Se creará "{assigneeName}"
-                                    </div>
-                                )}
-                                {!assigneeName && assignees.length > 0 && (
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', fontStyle: 'italic' }}>
-                                        💡 Escribe para ver sugerencias o crear uno nuevo
-                                    </div>
-                                )}
-                            </div>
-
-
-                            {/* Dependencies */}
-                            <div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                    <label style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Depende de</label>
-                                    <button
-                                        type="button"
-                                        onClick={() => setEditingDependsOn(true)}
-                                        disabled={areDependenciesLoading}
-                                        style={{
-                                            padding: '6px 12px',
-                                            background: 'var(--primary)',
-                                            border: 'none',
-                                            borderRadius: '4px',
-                                            color: 'white',
-                                            fontSize: '0.8rem',
-                                            cursor: areDependenciesLoading ? 'not-allowed' : 'pointer',
-                                            opacity: areDependenciesLoading ? 0.7 : 1
-                                        }}
-                                    >
-                                        {dependsOn.length > 0 ? 'Editar' : 'Agregar'}
-                                    </button>
-                                </div>
                                 <div style={{
-                                    minHeight: '50px',
-                                    padding: '10px',
-                                    background: 'var(--bg-card)',
-                                    border: '1px solid var(--border-color)',
-                                    borderRadius: '6px',
-                                    color: 'var(--text-secondary)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: areDependenciesLoading ? 'center' : 'flex-start'
-                                }}>
-                                    {areDependenciesLoading ? (
-                                        <div style={{
-                                            width: '20px',
-                                            height: '20px',
-                                            border: '2px solid rgba(255,255,255,0.3)',
-                                            borderTopColor: 'white',
-                                            borderRadius: '50%',
-                                            animation: 'spin 1s linear infinite'
-                                        }} />
-                                    ) : dependsOn.length > 0 ? (
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                            {dependsOn.map(id => {
-                                                const depTask = allTasks.find(t => t.id === id);
-                                                return depTask ? (
-                                                    <div key={id} style={{
-                                                        padding: '4px 8px',
-                                                        background: 'var(--bg-panel)',
-                                                        border: '1px solid var(--border-color)',
-                                                        borderRadius: '4px',
-                                                        fontSize: '0.8rem'
-                                                    }}>
-                                                        {depTask.title}
-                                                    </div>
-                                                ) : null;
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <span style={{ fontSize: '0.85rem', fontStyle: 'italic', color: 'var(--text-muted)' }}>Ninguna</span>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                                    <label style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Habilita a</label>
-                                    <button
-                                        type="button"
-                                        onClick={() => setEditingEnables(true)}
-                                        disabled={areDependenciesLoading}
-                                        style={{
-                                            padding: '6px 12px',
-                                            background: 'var(--primary)',
-                                            border: 'none',
-                                            borderRadius: '4px',
-                                            color: 'white',
-                                            fontSize: '0.8rem',
-                                            cursor: areDependenciesLoading ? 'not-allowed' : 'pointer',
-                                            opacity: areDependenciesLoading ? 0.7 : 1
-                                        }}
-                                    >
-                                        {enables.length > 0 ? 'Editar' : 'Agregar'}
-                                    </button>
-                                </div>
-                                <div style={{
-                                    minHeight: '50px',
-                                    padding: '10px',
-                                    background: 'var(--bg-card)',
-                                    border: '1px solid var(--border-color)',
-                                    borderRadius: '6px',
-                                    color: 'var(--text-secondary)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: areDependenciesLoading ? 'center' : 'flex-start'
-                                }}>
-                                    {areDependenciesLoading ? (
-                                        <div style={{
-                                            width: '20px',
-                                            height: '20px',
-                                            border: '2px solid rgba(255,255,255,0.3)',
-                                            borderTopColor: 'white',
-                                            borderRadius: '50%',
-                                            animation: 'spin 1s linear infinite'
-                                        }} />
-                                    ) : enables.length > 0 ? (
-                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                                            {enables.map(id => {
-                                                const enableTask = allTasks.find(t => t.id === id);
-                                                return enableTask ? (
-                                                    <div key={id} style={{
-                                                        padding: '4px 8px',
-                                                        background: 'var(--bg-panel)',
-                                                        border: '1px solid var(--border-color)',
-                                                        borderRadius: '4px',
-                                                        fontSize: '0.8rem'
-                                                    }}>
-                                                        {enableTask.title}
-                                                    </div>
-                                                ) : null;
-                                            })}
-                                        </div>
-                                    ) : (
-                                        <span style={{ fontSize: '0.85rem', fontStyle: 'italic', color: 'var(--text-muted)' }}>Ninguna</span>
-                                    )}
-                                </div>
-                            </div>
-
-
-
-                            <div style={{ marginTop: 'auto', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                                <p>Creación: {new Date(task.created_at || Date.now()).toLocaleDateString()}</p>
-                                {task.node_name && <p>Nodo: <span style={{ color: task.node_color || 'white' }}>{task.node_name}</span></p>}
-                            </div>
-
-                            {errorMessage && (
-                                <div style={{
-                                    color: '#ff4d4f',
-                                    background: 'rgba(255, 77, 79, 0.1)',
-                                    border: '1px solid #ff4d4f',
-                                    padding: '8px 12px',
-                                    borderRadius: '6px',
                                     marginTop: '16px',
-                                    fontSize: '0.9rem'
+                                    padding: '12px',
+                                    background: 'rgba(239, 68, 68, 0.05)',
+                                    borderRadius: '8px',
+                                    border: '1px solid rgba(239, 68, 68, 0.1)'
                                 }}>
-                                    {errorMessage}
+                                    <p style={{ color: '#ef4444', fontSize: '0.85rem', margin: 0, fontWeight: 500 }}>
+                                        ⚠️ Esta acción eliminará también todas las dependencias y relaciones asociadas.
+                                    </p>
                                 </div>
-                            )}
+                            </div>
 
-                            <div style={{ display: 'flex', gap: '12px', marginTop: '20px', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', gap: '12px', width: '100%', marginTop: '8px' }}>
                                 <button
-                                    type="button"
-                                    onClick={handleDelete}
-                                    disabled={isDeleting || loading}
+                                    onClick={() => setIsConfirmingDelete(false)}
                                     style={{
-                                        background: 'none',
-                                        border: 'none',
-                                        color: isDeleting ? '#ef4444' : 'var(--text-muted)',
-                                        cursor: (isDeleting || loading) ? 'not-allowed' : 'pointer',
-                                        fontSize: '0.85rem',
-                                        opacity: (isDeleting || loading) ? 0.7 : 1,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                        padding: '4px',
-                                        transition: 'color 0.2s ease'
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        if (!isDeleting && !loading) {
-                                            e.currentTarget.style.color = '#ef4444';
-                                        }
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        if (!isDeleting && !loading) {
-                                            e.currentTarget.style.color = 'var(--text-muted)';
-                                        }
-                                    }}
-                                    title="Eliminar tarea permanentemente"
-                                >
-                                    {isDeleting && <span className="spinner" style={{
-                                        width: '12px',
-                                        height: '12px',
-                                        border: '2px solid rgba(239, 68, 68, 0.3)',
-                                        borderTopColor: '#ef4444',
-                                        borderRadius: '50%',
-                                        animation: 'spin 1s linear infinite'
-                                    }}></span>}
-                                    {isDeleting ? 'Eliminando...' : 'Eliminar'}
-                                </button>
-                                <div style={{ flex: 1 }} />
-                                <button
-                                    onClick={onClose}
-                                    style={{
-                                        padding: '12px 24px',
-                                        background: 'transparent',
+                                        flex: 1,
+                                        padding: '10px',
+                                        borderRadius: '8px',
                                         border: '1px solid var(--border-color)',
+                                        background: 'rgba(255,255,255,0.03)',
                                         color: 'var(--text-secondary)',
-                                        borderRadius: '6px',
                                         cursor: 'pointer',
-                                        fontSize: '0.95rem',
-                                        minWidth: '100px'
+                                        fontSize: '0.9rem',
+                                        fontWeight: 500,
+                                        transition: 'background 0.2s'
                                     }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
                                 >
                                     Cancelar
                                 </button>
                                 <button
-                                    onClick={() => handleSubmit()}
-                                    disabled={loading || isDeleting}
+                                    onClick={executeDelete}
+                                    disabled={isDeleting}
                                     style={{
-                                        padding: '12px 24px',
-                                        background: 'var(--primary)',
+                                        flex: 1,
+                                        padding: '10px',
+                                        borderRadius: '8px',
                                         border: 'none',
+                                        background: '#ef4444',
                                         color: 'white',
-                                        borderRadius: '6px',
-                                        cursor: (loading || isDeleting) ? 'not-allowed' : 'pointer',
-                                        fontWeight: 'bold',
-                                        opacity: (loading || isDeleting) ? 0.7 : 1,
+                                        cursor: isDeleting ? 'not-allowed' : 'pointer',
+                                        fontSize: '0.9rem',
+                                        fontWeight: 600,
                                         display: 'flex',
-                                        fontSize: '0.95rem',
-                                        minWidth: '100px',
-                                        justifyContent: 'center',
                                         alignItems: 'center',
-                                        gap: '8px'
+                                        justifyContent: 'center',
+                                        gap: '8px',
+                                        boxShadow: '0 4px 6px -1px rgba(239, 68, 68, 0.2)',
+                                        transition: 'all 0.2s'
                                     }}
+                                    onMouseEnter={(e) => !isDeleting && (e.currentTarget.style.transform = 'translateY(-1px)')}
+                                    onMouseLeave={(e) => !isDeleting && (e.currentTarget.style.transform = 'translateY(0)')}
                                 >
-                                    {loading && <span className="spinner" style={{
-                                        width: '16px',
-                                        height: '16px',
-                                        border: '2px solid rgba(255,255,255,0.3)',
-                                        borderTopColor: 'white',
-                                        borderRadius: '50%',
-                                        animation: 'spin 1s linear infinite'
-                                    }}></span>}
-                                    {loading ? 'Guardando...' : 'Guardar'}
+                                    {isDeleting ? 'Eliminando...' : 'Eliminar'}
                                 </button>
-                                <style>{`
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Header */}
+                            <div style={{
+                                padding: 'var(--space-md)',
+                                borderBottom: '1px solid var(--glass-border)',
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'
+                            }}>
+                                {canGoBack && onGoBack && (
+                                    <button
+                                        onClick={onGoBack}
+                                        style={{
+                                            marginRight: '12px',
+                                            background: 'transparent',
+                                            border: 'none',
+                                            color: 'white',
+                                            cursor: 'pointer',
+                                            padding: '4px',
+                                            marginTop: '4px'
+                                        }}
+                                        title="Volver a la tarea anterior"
+                                    >
+                                        <ArrowLeft size={24} />
+                                    </button>
+                                )}
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                                        {/* Project Badge */}
+                                        {task.project_name && (
+                                            <span style={{ background: 'rgba(96, 165, 250, 0.2)', color: '#60a5fa', padding: '2px 8px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                                                {task.project_name}
+                                            </span>
+                                        )}
+                                        {/* Objective Label */}
+                                        {task.objective_title && (
+                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}>
+                                                • {task.objective_title}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <input
+                                        value={formData.title}
+                                        onChange={e => setFormData({ ...formData, title: e.target.value })}
+                                        style={{
+                                            width: '100%',
+                                            background: 'transparent',
+                                            border: 'none',
+                                            color: 'white',
+                                            fontSize: '1.5rem',
+                                            fontWeight: 'bold',
+                                            outline: 'none'
+                                        }}
+                                        placeholder="Título de la tarea"
+                                        required
+                                    />
+                                </div>
+                                <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                                    <X size={24} />
+                                </button>
+                            </div>
+
+                            {/* Body - Grid Layout */}
+                            <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+
+                                {/* Main Content (Left) */}
+                                <div style={{ flex: 2, padding: 'var(--space-lg)', borderRight: '1px solid var(--glass-border)', overflowY: 'auto' }}>
+                                    <form id="taskForm" onSubmit={handleSubmit}>
+                                        <h4 style={{ color: 'var(--text-secondary)', marginTop: 0 }}>Descripción</h4>
+                                        <textarea
+                                            value={formData.description}
+                                            onChange={e => setFormData({ ...formData, description: e.target.value })}
+                                            style={{
+                                                width: '100%', minHeight: '200px',
+                                                background: 'rgba(255,255,255,0.05)', border: 'none',
+                                                color: 'var(--text-primary)', borderRadius: '8px', padding: '12px',
+                                                fontSize: '1rem', lineHeight: '1.5',
+                                                resize: 'vertical'
+                                            }}
+                                            placeholder="Describe la tarea detalladamente..."
+                                        />
+
+                                        <div style={{ marginTop: '20px' }}>
+                                            <h4 style={{ color: 'var(--text-secondary)' }}>Evidencia</h4>
+                                            <input
+                                                value={formData.evidence_url}
+                                                onChange={e => setFormData({ ...formData, evidence_url: e.target.value })}
+                                                placeholder="URL de evidencia (Notion, Drive, etc.)"
+                                                style={{ width: '100%', padding: '10px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '6px' }}
+                                            />
+                                        </div>
+
+                                        {/* Blocking Reason (Only if Blocked/Waiting) */}
+                                        {formData.status === 'Waiting' && (
+                                            <div style={{ marginTop: '20px' }}>
+                                                <h4 style={{ color: '#EF4444', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <AlertTriangle size={16} />
+                                                    Motivo del Bloqueo
+                                                </h4>
+                                                <textarea
+                                                    value={formData.blocking_reason || ''}
+                                                    onChange={e => setFormData({ ...formData, blocking_reason: e.target.value })}
+                                                    placeholder="Indica por qué esta tarea está bloqueada..."
+                                                    rows={3}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '12px',
+                                                        background: 'rgba(239, 68, 68, 0.1)', // Light red bg
+                                                        border: '1px solid #EF4444',
+                                                        color: 'white',
+                                                        borderRadius: '8px',
+                                                        resize: 'vertical'
+                                                    }}
+                                                />
+                                            </div>
+                                        )}
+                                    </form>
+                                </div>
+
+                                {/* Sidebar (Right) */}
+                                <div style={{ flex: 1, padding: 'var(--space-lg)', background: 'rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto', maxHeight: '100%' }}>
+
+                                    {/* Status */}
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Estado</label>
+                                        <select
+                                            value={formData.status}
+                                            onChange={e => setFormData({ ...formData, status: e.target.value })}
+                                            style={{
+                                                width: '100%', padding: '10px',
+                                                background: 'var(--bg-card)', color: 'white',
+                                                border: '1px solid var(--border-color)', borderRadius: '6px'
+                                            }}
+                                        >
+                                            <option value="Backlog">Backlog</option>
+                                            <option value="Todo">Por Iniciar</option>
+                                            <option value="Doing">En Progreso</option>
+                                            <option value="Waiting">Bloqueado / Esperando</option>
+                                            <option value="Done">Terminada</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Waiting for Third Party Toggle */}
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px', marginBottom: '8px' }}>
+                                        <div>
+                                            <label style={{ display: 'block', color: formData.is_waiting_third_party ? '#F59E0B' : 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 500, transition: 'color 0.2s' }}>Esperando a terceros</label>
+                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', opacity: 0.8 }}>Tarea pausada por respuesta externa</span>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const newValue = !formData.is_waiting_third_party;
+                                                let newStatus = formData.status;
+                                                // "si un usuario trata de marcar una tarea como 'esperando por terceros' en estado 'backlog', 'por iniciar' o 'Terminada', la tarea cambiará a 'En progeso' automaticamente"
+                                                if (newValue && (newStatus === 'Backlog' || newStatus === 'Todo' || newStatus === 'Done')) {
+                                                    newStatus = 'Doing';
+                                                }
+                                                setFormData({ ...formData, is_waiting_third_party: newValue, status: newStatus });
+                                            }}
+                                            style={{
+                                                width: '40px',
+                                                height: '22px',
+                                                borderRadius: '12px',
+                                                border: 'none',
+                                                background: formData.is_waiting_third_party ? '#F59E0B' : 'rgba(255,255,255,0.1)',
+                                                cursor: 'pointer',
+                                                position: 'relative',
+                                                transition: 'background 0.2s ease'
+                                            }}
+                                        >
+                                            <div style={{
+                                                width: '18px',
+                                                height: '18px',
+                                                borderRadius: '50%',
+                                                background: 'white',
+                                                position: 'absolute',
+                                                top: '2px',
+                                                left: formData.is_waiting_third_party ? '20px' : '2px',
+                                                transition: 'left 0.2s ease',
+                                                boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                                            }} />
+                                        </button>
+                                    </div>
+
+                                    {/* Complexity */}
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Complejidad</label>
+                                        <select
+                                            value={formData.complexity}
+                                            onChange={e => setFormData({ ...formData, complexity: e.target.value })}
+                                            style={{
+                                                width: '100%', padding: '10px',
+                                                background: 'var(--bg-card)', color: 'white',
+                                                border: '1px solid var(--border-color)', borderRadius: '6px'
+                                            }}
+                                        >
+                                            <option value="">Sin definir</option>
+                                            <option value="S">S - Pequeña</option>
+                                            <option value="M">M - Mediana</option>
+                                            <option value="L">L - Grande</option>
+                                            <option value="XL">XL - Muy Grande</option>
+                                            <option value="XXL">XXL - Enorme</option>
+                                        </select>
+                                    </div>
+
+                                    {/* Date */}
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Fecha Objetivo</label>
+                                        <div style={{ position: 'relative' }}>
+                                            <input
+                                                type="date"
+                                                value={formData.target_date}
+                                                onChange={e => setFormData({ ...formData, target_date: e.target.value })}
+                                                onClick={(e) => {
+                                                    try {
+                                                        if ('showPicker' in HTMLInputElement.prototype) {
+                                                            (e.target as HTMLInputElement).showPicker();
+                                                        }
+                                                    } catch (error) {
+                                                        // ignore
+                                                    }
+                                                }}
+                                                style={{ width: '100%', padding: '10px', paddingLeft: '34px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '6px', cursor: 'pointer' }}
+                                            />
+                                            <Calendar size={16} style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--text-muted)' }} />
+                                        </div>
+                                    </div>
+
+                                    {/* Assignee */}
+                                    <div>
+                                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Asignado a</label>
+                                        <div style={{ position: 'relative' }}>
+                                            <input
+                                                type="text"
+                                                list="assignees-datalist"
+                                                value={assigneeName}
+                                                onChange={(e) => {
+                                                    setAssigneeName(e.target.value);
+                                                    // Find matching assignee to set ID
+                                                    const matchingAssignee = assignees.find(a => a.name.toLowerCase() === e.target.value.toLowerCase());
+                                                    if (matchingAssignee) {
+                                                        setAssigneeId(matchingAssignee.id);
+                                                    } else {
+                                                        setAssigneeId(null);
+                                                    }
+                                                }}
+                                                placeholder="Escribe un nombre..."
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '10px',
+                                                    paddingRight: assigneeName ? '40px' : '10px',
+                                                    background: 'var(--bg-input)',
+                                                    border: '1px solid var(--border-color)',
+                                                    color: 'white',
+                                                    borderRadius: '6px'
+                                                }}
+                                            />
+                                            {assigneeName && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setAssigneeName('');
+                                                        setAssigneeId(null);
+                                                    }}
+                                                    style={{
+                                                        position: 'absolute',
+                                                        right: '8px',
+                                                        top: '50%',
+                                                        transform: 'translateY(-50%)',
+                                                        background: 'rgba(255,255,255,0.1)',
+                                                        border: 'none',
+                                                        borderRadius: '4px',
+                                                        width: '24px',
+                                                        height: '24px',
+                                                        cursor: 'pointer',
+                                                        color: 'var(--text-muted)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        fontSize: '14px'
+                                                    }}
+                                                    title="Limpiar asignado"
+                                                >
+                                                    ✕
+                                                </button>
+                                            )}
+                                        </div>
+                                        <datalist id="assignees-datalist">
+                                            {assignees
+                                                .filter(assignee => assignee.name.toLowerCase() !== assigneeName.toLowerCase())
+                                                .map(assignee => (
+                                                    <option key={assignee.id} value={assignee.name} />
+                                                ))}
+                                        </datalist>
+                                        {assigneeName && !assignees.find(a => a.name.toLowerCase() === assigneeName.toLowerCase()) && (
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: '4px', fontStyle: 'italic' }}>
+                                                ✨ Se creará "{assigneeName}"
+                                            </div>
+                                        )}
+                                        {!assigneeName && assignees.length > 0 && (
+                                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', fontStyle: 'italic' }}>
+                                                💡 Escribe para ver sugerencias o crear uno nuevo
+                                            </div>
+                                        )}
+                                    </div>
+
+
+                                    {/* Dependencies */}
+                                    <div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                            <label style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Depende de</label>
+                                            <button
+                                                type="button"
+                                                onClick={() => setEditingDependsOn(true)}
+                                                disabled={areDependenciesLoading}
+                                                style={{
+                                                    padding: '6px 12px',
+                                                    background: 'var(--primary)',
+                                                    border: 'none',
+                                                    borderRadius: '4px',
+                                                    color: 'white',
+                                                    fontSize: '0.8rem',
+                                                    cursor: areDependenciesLoading ? 'not-allowed' : 'pointer',
+                                                    opacity: areDependenciesLoading ? 0.7 : 1
+                                                }}
+                                            >
+                                                {dependsOn.length > 0 ? 'Editar' : 'Agregar'}
+                                            </button>
+                                        </div>
+                                        <div style={{
+                                            minHeight: '50px',
+                                            padding: '10px',
+                                            background: 'var(--bg-card)',
+                                            border: '1px solid var(--border-color)',
+                                            borderRadius: '6px',
+                                            color: 'var(--text-secondary)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: areDependenciesLoading ? 'center' : 'flex-start'
+                                        }}>
+                                            {areDependenciesLoading ? (
+                                                <div style={{
+                                                    width: '20px',
+                                                    height: '20px',
+                                                    border: '2px solid rgba(255,255,255,0.3)',
+                                                    borderTopColor: 'white',
+                                                    borderRadius: '50%',
+                                                    animation: 'spin 1s linear infinite'
+                                                }} />
+                                            ) : dependsOn.length > 0 ? (
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                    {dependsOn.map(id => {
+                                                        const depTask = allTasks.find(t => t.id === id);
+                                                        const isDone = depTask?.status === 'Done';
+                                                        return depTask ? (
+                                                            <div
+                                                                key={id}
+                                                                onClick={() => onNavigateToTask && onNavigateToTask(depTask)}
+                                                                style={{
+                                                                    padding: '4px 8px',
+                                                                    background: 'var(--bg-panel)',
+                                                                    border: `1px solid ${isDone ? '#10B981' : 'var(--border-color)'}`,
+                                                                    borderRadius: '4px',
+                                                                    fontSize: '0.8rem',
+                                                                    cursor: onNavigateToTask ? 'pointer' : 'default',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '4px',
+                                                                    color: isDone ? '#10B981' : 'inherit'
+                                                                }}
+                                                                onMouseEnter={(e) => {
+                                                                    if (onNavigateToTask) {
+                                                                        if (!isDone) e.currentTarget.style.borderColor = 'var(--primary)';
+                                                                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                                                                    }
+                                                                }}
+                                                                onMouseLeave={(e) => {
+                                                                    if (onNavigateToTask) {
+                                                                        e.currentTarget.style.borderColor = isDone ? '#10B981' : 'var(--border-color)';
+                                                                        e.currentTarget.style.background = 'var(--bg-panel)';
+                                                                    }
+                                                                }}
+                                                                title="Clic para editar esta tarea"
+                                                            >
+                                                                {depTask.title}
+                                                                {onNavigateToTask && <ExternalLink size={10} style={{ opacity: 0.7 }} />}
+                                                            </div>
+                                                        ) : null;
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                <span style={{ fontSize: '0.85rem', fontStyle: 'italic', color: 'var(--text-muted)' }}>Ninguna</span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                            <label style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Habilita a</label>
+                                            <button
+                                                type="button"
+                                                onClick={() => setEditingEnables(true)}
+                                                disabled={areDependenciesLoading}
+                                                style={{
+                                                    padding: '6px 12px',
+                                                    background: 'var(--primary)',
+                                                    border: 'none',
+                                                    borderRadius: '4px',
+                                                    color: 'white',
+                                                    fontSize: '0.8rem',
+                                                    cursor: areDependenciesLoading ? 'not-allowed' : 'pointer',
+                                                    opacity: areDependenciesLoading ? 0.7 : 1
+                                                }}
+                                            >
+                                                {enables.length > 0 ? 'Editar' : 'Agregar'}
+                                            </button>
+                                        </div>
+                                        <div style={{
+                                            minHeight: '50px',
+                                            padding: '10px',
+                                            background: 'var(--bg-card)',
+                                            border: '1px solid var(--border-color)',
+                                            borderRadius: '6px',
+                                            color: 'var(--text-secondary)',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: areDependenciesLoading ? 'center' : 'flex-start'
+                                        }}>
+                                            {areDependenciesLoading ? (
+                                                <div style={{
+                                                    width: '20px',
+                                                    height: '20px',
+                                                    border: '2px solid rgba(255,255,255,0.3)',
+                                                    borderTopColor: 'white',
+                                                    borderRadius: '50%',
+                                                    animation: 'spin 1s linear infinite'
+                                                }} />
+                                            ) : enables.length > 0 ? (
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                                    {enables.map(id => {
+                                                        const enableTask = allTasks.find(t => t.id === id);
+                                                        return enableTask ? (
+                                                            <div
+                                                                key={id}
+                                                                onClick={() => onNavigateToTask && onNavigateToTask(enableTask)}
+                                                                style={{
+                                                                    padding: '4px 8px',
+                                                                    background: 'var(--bg-panel)',
+                                                                    border: '1px solid var(--border-color)',
+                                                                    borderRadius: '4px',
+                                                                    fontSize: '0.8rem',
+                                                                    cursor: onNavigateToTask ? 'pointer' : 'default',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '4px'
+                                                                }}
+                                                                onMouseEnter={(e) => {
+                                                                    if (onNavigateToTask) {
+                                                                        e.currentTarget.style.borderColor = 'var(--primary)';
+                                                                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                                                                    }
+                                                                }}
+                                                                onMouseLeave={(e) => {
+                                                                    if (onNavigateToTask) {
+                                                                        e.currentTarget.style.borderColor = 'var(--border-color)';
+                                                                        e.currentTarget.style.background = 'var(--bg-panel)';
+                                                                    }
+                                                                }}
+                                                                title="Clic para editar esta tarea"
+                                                            >
+                                                                {enableTask.title}
+                                                                {onNavigateToTask && <ExternalLink size={10} style={{ opacity: 0.7 }} />}
+                                                            </div>
+                                                        ) : null;
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                <span style={{ fontSize: '0.85rem', fontStyle: 'italic', color: 'var(--text-muted)' }}>Ninguna</span>
+                                            )}
+                                        </div>
+                                    </div>
+
+
+
+                                    <div style={{ marginTop: 'auto', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                        <p>Creación: {new Date(task.created_at || Date.now()).toLocaleDateString()}</p>
+                                        {task.node_name && <p>Nodo: <span style={{ color: task.node_color || 'white' }}>{task.node_name}</span></p>}
+                                    </div>
+
+                                    {errorMessage && (
+                                        <div style={{
+                                            color: '#ff4d4f',
+                                            background: 'rgba(255, 77, 79, 0.1)',
+                                            border: '1px solid #ff4d4f',
+                                            padding: '8px 12px',
+                                            borderRadius: '6px',
+                                            marginTop: '16px',
+                                            fontSize: '0.9rem'
+                                        }}>
+                                            {errorMessage}
+                                        </div>
+                                    )}
+
+                                    <div style={{ display: 'flex', gap: '12px', marginTop: '20px', alignItems: 'center' }}>
+                                        <button
+                                            type="button"
+                                            onClick={handleDelete}
+                                            disabled={isDeleting || loading}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                color: isDeleting ? '#ef4444' : 'var(--text-muted)',
+                                                cursor: (isDeleting || loading) ? 'not-allowed' : 'pointer',
+                                                fontSize: '0.85rem',
+                                                opacity: (isDeleting || loading) ? 0.7 : 1,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                padding: '4px',
+                                                transition: 'color 0.2s ease'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (!isDeleting && !loading) {
+                                                    e.currentTarget.style.color = '#ef4444';
+                                                }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (!isDeleting && !loading) {
+                                                    e.currentTarget.style.color = 'var(--text-muted)';
+                                                }
+                                            }}
+                                            title="Eliminar tarea permanentemente"
+                                        >
+                                            {isDeleting && <span className="spinner" style={{
+                                                width: '12px',
+                                                height: '12px',
+                                                border: '2px solid rgba(239, 68, 68, 0.3)',
+                                                borderTopColor: '#ef4444',
+                                                borderRadius: '50%',
+                                                animation: 'spin 1s linear infinite'
+                                            }}></span>}
+                                            {isDeleting ? 'Eliminando...' : 'Eliminar'}
+                                        </button>
+                                        <div style={{ flex: 1 }} />
+                                        <button
+                                            onClick={onClose}
+                                            style={{
+                                                padding: '12px 24px',
+                                                background: 'transparent',
+                                                border: '1px solid var(--border-color)',
+                                                color: 'var(--text-secondary)',
+                                                borderRadius: '6px',
+                                                cursor: 'pointer',
+                                                fontSize: '0.95rem',
+                                                minWidth: '100px'
+                                            }}
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            onClick={() => handleSubmit()}
+                                            disabled={loading || isDeleting}
+                                            style={{
+                                                padding: '12px 24px',
+                                                background: 'var(--primary)',
+                                                border: 'none',
+                                                color: 'white',
+                                                borderRadius: '6px',
+                                                cursor: (loading || isDeleting) ? 'not-allowed' : 'pointer',
+                                                fontWeight: 'bold',
+                                                opacity: (loading || isDeleting) ? 0.7 : 1,
+                                                display: 'flex',
+                                                fontSize: '0.95rem',
+                                                minWidth: '100px',
+                                                justifyContent: 'center',
+                                                alignItems: 'center',
+                                                gap: '8px'
+                                            }}
+                                        >
+                                            {loading && <span className="spinner" style={{
+                                                width: '16px',
+                                                height: '16px',
+                                                border: '2px solid rgba(255,255,255,0.3)',
+                                                borderTopColor: 'white',
+                                                borderRadius: '50%',
+                                                animation: 'spin 1s linear infinite'
+                                            }}></span>}
+                                            {loading ? 'Guardando...' : 'Guardar'}
+                                        </button>
+                                        <style>{`
                                     @keyframes spin {
                                         to { transform: rotate(360deg); }
                                     }
                                 `}</style>
-                            </div>
-
-                        </div>
-                    </div>
-                </div >
-            </div >
+                                    </div> {/* Close Buttons */}
+                                </div> {/* Close Sidebar */}
+                            </div> {/* Close Body */}
+                        </>
+                    )}
+                </div> {/* Close Glass Panel */}
+            </div > {/* Close Modal Overlay */}
         </>
     );
 };

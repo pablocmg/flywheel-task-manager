@@ -1,5 +1,5 @@
 import React from 'react';
-import { Circle, Clock, ExternalLink } from 'lucide-react';
+import { Circle, Clock, ExternalLink, AlertTriangle } from 'lucide-react';
 
 interface Task {
     id: string;
@@ -19,6 +19,7 @@ interface Task {
     assignee_name?: string;
     complexity?: 'S' | 'M' | 'L' | 'XL' | 'XXL';
     is_waiting_third_party?: boolean;
+    has_incomplete_dependencies?: boolean;
 }
 
 interface TaskCardProps {
@@ -33,9 +34,18 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, nodeColors }) 
     const borderColor = task.node_color ||
         ((task.node_id && nodeColors && nodeColors[task.node_id]) ? nodeColors[task.node_id] : 'var(--border-color)');
 
-    // Waiting for third party visual states
-    const isWaiting = task.is_waiting_third_party;
+    // Visual states for special conditions
+    const isWaitingThirdParty = task.is_waiting_third_party;
+    const isBlockedByDependencies = task.has_incomplete_dependencies && !isWaitingThirdParty;
+    const hasSpecialBorder = isWaitingThirdParty || isBlockedByDependencies;
     const [isHovered, setIsHovered] = React.useState(false);
+
+    // Determine border style
+    const getBorderStyle = () => {
+        if (isWaitingThirdParty) return '2px dashed rgba(245, 158, 11, 0.6)'; // Amber
+        if (isBlockedByDependencies) return '2px dashed rgba(239, 68, 68, 0.6)'; // Red
+        return undefined;
+    };
 
     return (
         <div
@@ -45,13 +55,13 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, nodeColors }) 
             style={{
                 marginBottom: '8px',
                 padding: '10px 12px',
-                borderLeft: isWaiting ? 'none' : `4px solid ${borderColor}`,
-                border: isWaiting ? '2px dashed rgba(245, 158, 11, 0.6)' : undefined,
+                borderLeft: hasSpecialBorder ? 'none' : `4px solid ${borderColor}`,
+                border: getBorderStyle(),
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '6px',
                 position: 'relative',
-                opacity: isWaiting && !isHovered ? 0.6 : 1,
+                opacity: hasSpecialBorder && !isHovered ? 0.6 : 1,
                 transition: 'opacity 0.2s ease, border 0.2s ease'
             }}>
 
@@ -176,7 +186,24 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, nodeColors }) 
                             }}
                         >
                             <Clock size={14} />
-                            <span style={{ fontWeight: 500 }}>Esperando</span>
+                            <span style={{ fontWeight: 500 }}>Esperando terceros</span>
+                        </div>
+                    )}
+
+                    {/* Blocked by Dependencies Icon */}
+                    {task.has_incomplete_dependencies && !task.is_waiting_third_party && (
+                        <div
+                            title="Bloqueada por dependencias incompletas"
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                color: '#ef4444',
+                                fontSize: '0.75rem'
+                            }}
+                        >
+                            <AlertTriangle size={14} />
+                            <span style={{ fontWeight: 500 }}>Dependencia Incompleta</span>
                         </div>
                     )}
 
@@ -208,8 +235,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, nodeColors }) 
             </div>
 
             {task.status === 'Waiting' && (
-                <div style={{ fontSize: '0.85rem', color: 'var(--state-warning)', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Clock size={14} /> Esperando dependencias...
+                <div style={{ fontSize: '0.85rem', color: 'var(--state-alert)', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Clock size={14} /> Bloqueado
                 </div>
             )}
         </div>

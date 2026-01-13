@@ -2,16 +2,17 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../services/api';
 import { TaskCard } from '../components/TaskCard';
 import { TaskEditModal } from '../components/TaskEditModal';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, AlertTriangle } from 'lucide-react';
 import {
     DndContext,
-    closestCorners,
     KeyboardSensor,
     PointerSensor,
     useSensor,
     useSensors,
     DragOverlay,
     defaultDropAnimationSideEffects,
+    useDroppable,
+    pointerWithin,
 } from '@dnd-kit/core';
 import type { DragEndEvent, DragOverEvent, DragStartEvent, DropAnimation } from '@dnd-kit/core';
 import {
@@ -45,7 +46,11 @@ interface Task {
     assignee_id?: string;
     assignee_name?: string;
     complexity?: 'S' | 'M' | 'L' | 'XL' | 'XXL';
+    first_name?: string;
+    last_name?: string;
     is_waiting_third_party?: boolean;
+    has_incomplete_dependencies?: boolean;
+    blocking_reason?: string;
 }
 
 interface SwimlaneData {
@@ -189,7 +194,7 @@ function SwimlaneRow({
 
 // Column Component (for flat view)
 function KanbanColumn({ id, title, tasks, nodeColors, onEdit }: { id: string; title: string; tasks: Task[]; nodeColors: Record<string, string>; onEdit: (t: Task) => void }) {
-    const { setNodeRef } = useSortable({ id: id, data: { type: 'Column', id } });
+    const { setNodeRef } = useDroppable({ id: id, data: { type: 'Column', id } });
 
     return (
         <div style={{ display: 'flex', gap: '8px', height: '100%', maxHeight: 'calc(100vh - 200px)' }}>
@@ -273,6 +278,7 @@ const Execution: React.FC = () => {
     const [allProjects, setAllProjects] = useState<string[]>([]);
     const [activeTask, setActiveTask] = useState<Task | null>(null);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
+    const [taskHistory, setTaskHistory] = useState<Task[]>([]);
     const [swimlaneMode, setSwimlaneMode] = useState<SwimlaneMode>('none');
 
     // Task creation state
@@ -360,11 +366,55 @@ const Execution: React.FC = () => {
         }
     };
 
+    const [pendingConfirmationTask, setPendingConfirmationTask] = useState<Task | null>(null);
+
+    const [blockedTaskAlert, setBlockedTaskAlert] = useState<Task | null>(null);
+    const [blockedReasonPromptTask, setBlockedReasonPromptTask] = useState<Task | null>(null);
+    const [blockingReasonText, setBlockingReasonText] = useState('');
+
+    const handleConfirmBlock = async () => {
+        if (!blockedReasonPromptTask) return;
+        try {
+            await api.updateTask(blockedReasonPromptTask.id, {
+                status: 'Waiting',
+                blocking_reason: blockingReasonText
+            });
+            loadNodesAndTasks();
+        } catch (err) {
+            console.error("Failed to block task:", err);
+        }
+        setBlockedReasonPromptTask(null);
+        setBlockingReasonText('');
+    };
+
+    const handleConfirmCompletion = async (confirmed: boolean) => {
+        if (!pendingConfirmationTask) return;
+
+        if (confirmed) {
+            try {
+                await api.updateTask(pendingConfirmationTask.id, {
+                    status: 'Done',
+                    is_waiting_third_party: false
+                });
+                loadNodesAndTasks(); // Refresh board
+            } catch (err) {
+                console.error("Failed to complete task:", err);
+            }
+        }
+        setPendingConfirmationTask(null);
+    };
+
     const handleUpdate = () => {
         loadNodesAndTasks();
     };
 
     // Swimlane data grouping
+    // ... (unchanged)
+
+
+
+
+
     const swimlaneData = useMemo(() => {
         if (swimlaneMode === 'none') return null;
 
@@ -545,12 +595,11 @@ const Execution: React.FC = () => {
             return;
         }
 
-        // 1. Determine destination column and index
+        // 1. Determine destination column
         let newStatus = activeTask.status;
 
         if (over.data.current?.type === 'Column') {
             newStatus = over.id as string;
-            console.log('Dropped on column:', newStatus);
         } else if (over.data.current?.type === 'Task') {
             const overTaskId = overData?.swimlaneId
                 ? overId.substring(overData.swimlaneId.length + 1)
@@ -558,9 +607,59 @@ const Execution: React.FC = () => {
             const overTask = tasks.find(t => t.id === overTaskId);
             if (overTask) {
                 newStatus = overTask.status;
-                console.log('Dropped on task:', overTask.title, 'status:', newStatus);
             }
         }
+
+        // --- VALIDATION RULES ---
+        const isBlocked = activeTask.has_incomplete_dependencies;
+        const isWaiting = activeTask.is_waiting_third_party;
+
+        console.log('Validating Move:', {
+            task: activeTask.title,
+            status: activeTask.status,
+            to: newStatus,
+            isBlocked,
+            isWaiting
+        });
+
+        // Alert: Blocked Task moving to Doing
+        if (isBlocked && newStatus === 'Doing') {
+            setBlockedTaskAlert(activeTask);
+            return;
+        }
+
+        // Prompt for Reason when moving to Waiting (Blocked)
+        if (newStatus === 'Waiting' && activeTask.status !== 'Waiting') {
+            setBlockedReasonPromptTask(activeTask);
+            setBlockingReasonText(activeTask.blocking_reason || '');
+            return;
+        }
+
+        // Rule A: Blocked by Dependencies
+        // "Cuando una tarea depende de otra, solo se puede mover a las columnas 'backlog' o 'Por iniciar' si esa otra tarea no esta 'Terminada'."
+        // Note: isBlocked IS true if dependencies are not done.
+        if (isBlocked && !isWaiting) {
+            if (!['Backlog', 'Todo'].includes(newStatus)) {
+                console.warn("Blocked tasks can only be in Backlog or Todo");
+                return; // Prevent move
+            }
+        }
+
+        // Rule B: Waiting for Third Party
+        // 1. Intercept Move to Done (Ask for confirmation)
+        if (isWaiting && newStatus === 'Done') {
+            setPendingConfirmationTask(activeTask);
+            return; // Prevent immediate move
+        }
+
+        // 2. "Cuando una tarea está esperando por terceros, solo puede estar en 'En progreso' o 'bloqueada'"
+        if (isWaiting) {
+            if (!['Doing', 'Waiting'].includes(newStatus)) {
+                console.warn("Waiting tasks can only be in Doing or Waiting");
+                return; // Prevent move
+            }
+        }
+        // ------------------------
 
         // Check if Status Changed
         if (activeTask.status !== newStatus) {
@@ -577,6 +676,7 @@ const Execution: React.FC = () => {
                 // Call API
                 await api.updateTaskStatus(actualTaskId, newStatus);
                 console.log(`Updated status of ${actualTaskId} to ${newStatus}`);
+                handleUpdate();
             } catch (err) {
                 console.error("Failed to update status", err);
                 handleUpdate(); // revert
@@ -923,7 +1023,7 @@ const Execution: React.FC = () => {
             </div>
             <DndContext
                 sensors={sensors}
-                collisionDetection={closestCorners}
+                collisionDetection={pointerWithin}
                 onDragStart={onDragStart}
                 onDragOver={onDragOver}
                 onDragEnd={onDragEnd}
@@ -1005,12 +1105,228 @@ const Execution: React.FC = () => {
                 </DragOverlay>
             </DndContext>
 
+            {/* Confirmation Modal */}
+            {pendingConfirmationTask && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.7)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1100
+                }}>
+                    <div className="glass-panel" style={{
+                        width: '90%',
+                        maxWidth: '400px',
+                        padding: '24px',
+                        borderRadius: '16px',
+                        border: '1px solid var(--glass-border)',
+                        background: 'var(--bg-card)',
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                    }}>
+                        <h3 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: '1.25rem' }}>
+                            ¿El tercero completó su parte?
+                        </h3>
+                        <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
+                            Esta tarea está marcada como "Esperando a terceros".
+                            Para marcarla como Terminada, confirmas que la dependencia externa está resuelta.
+                        </p>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                            <button
+                                onClick={() => handleConfirmCompletion(false)}
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '8px',
+                                    border: '1px solid var(--glass-border)',
+                                    background: 'transparent',
+                                    color: 'var(--text-secondary)',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                No
+                            </button>
+                            <button
+                                onClick={() => handleConfirmCompletion(true)}
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    background: 'var(--primary)',
+                                    color: 'white',
+                                    fontWeight: 600,
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Sí, completar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Blocked Task Alert Modal */}
+            {blockedTaskAlert && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.7)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1100
+                }}>
+                    <div className="glass-panel" style={{
+                        width: '90%',
+                        maxWidth: '400px',
+                        padding: '24px',
+                        borderRadius: '16px',
+                        border: '1px solid var(--glass-border)',
+                        background: 'var(--bg-card)',
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                    }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+                            <div style={{
+                                width: '48px', height: '48px',
+                                borderRadius: '50%', background: 'rgba(239, 68, 68, 0.2)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                marginBottom: '16px', color: '#ef4444'
+                            }}>
+                                <AlertTriangle size={24} />
+                            </div>
+                            <h3 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: '1.25rem', marginBottom: '8px' }}>
+                                Tarea Bloqueada
+                            </h3>
+                            <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
+                                Debes completar primero la dependencia o eliminarla.
+                            </p>
+                            <button
+                                onClick={() => setBlockedTaskAlert(null)}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    background: 'var(--primary)',
+                                    color: 'white',
+                                    fontWeight: 600,
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Aceptar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Blocking Reason Prompt Modal */}
+            {blockedReasonPromptTask && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: 'rgba(0,0,0,0.7)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1100
+                }}>
+                    <div className="glass-panel" style={{
+                        width: '90%',
+                        maxWidth: '500px',
+                        padding: '24px',
+                        borderRadius: '16px',
+                        border: '1px solid var(--glass-border)',
+                        background: 'var(--bg-card)',
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+                    }}>
+                        <h3 style={{ marginTop: 0, color: 'var(--text-primary)', fontSize: '1.25rem' }}>
+                            Motivo del Bloqueo
+                        </h3>
+                        <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                            Por favor indica el motivo por el cual esta tarea está bloqueada.
+                        </p>
+                        <textarea
+                            value={blockingReasonText}
+                            onChange={(e) => setBlockingReasonText(e.target.value)}
+                            placeholder="Describe el motivo del bloqueo..."
+                            rows={4}
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                border: '1px solid var(--glass-border)',
+                                borderRadius: '8px',
+                                color: 'white',
+                                marginBottom: '24px',
+                                resize: 'vertical'
+                            }}
+                            autoFocus
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                            <button
+                                onClick={() => setBlockedReasonPromptTask(null)}
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '8px',
+                                    border: '1px solid var(--glass-border)',
+                                    background: 'transparent',
+                                    color: 'var(--text-secondary)',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleConfirmBlock}
+                                style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    background: '#EF4444', // Red for blocked
+                                    color: 'white',
+                                    fontWeight: 600,
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Bloquear Tarea
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Edit Modal */}
             <TaskEditModal
                 isOpen={!!editingTask}
                 task={editingTask}
-                onClose={() => setEditingTask(null)}
+                onClose={() => {
+                    setEditingTask(null);
+                    setTaskHistory([]);
+                }}
                 onUpdate={handleUpdate}
+                onNavigateToTask={(newTask) => {
+                    if (editingTask) {
+                        setTaskHistory(prev => [...prev, editingTask]);
+                    }
+                    setEditingTask(newTask);
+                }}
+                onGoBack={() => {
+                    if (taskHistory.length === 0) return;
+                    const prevTask = taskHistory[taskHistory.length - 1];
+                    setTaskHistory(prev => prev.slice(0, -1));
+                    setEditingTask(prevTask);
+                }}
+                canGoBack={taskHistory.length > 0}
             />
 
             {/* Create Task Modal */}

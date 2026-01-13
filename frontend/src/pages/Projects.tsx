@@ -39,6 +39,7 @@ interface Task {
     assignee_name?: string;
     complexity?: 'S' | 'M' | 'L' | 'XL' | 'XXL';
     is_waiting_third_party?: boolean;
+    has_incomplete_dependencies?: boolean;
 }
 
 const Projects: React.FC = () => {

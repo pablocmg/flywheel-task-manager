@@ -9,7 +9,14 @@ export const getAllTasks = async (req: Request, res: Response) => {
                    n.color as node_color,
                    a.name as assignee_name,
                    (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count,
-                   (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes
+                   (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes,
+                   (SELECT EXISTS(
+                       SELECT 1 FROM task_dependencies td
+                       JOIN tasks dep_task ON td.target_task_id = dep_task.id
+                       WHERE td.source_task_id = t.id 
+                         AND td.dependency_type = 'depends_on'
+                         AND dep_task.status != 'Done'
+                   )) as has_incomplete_dependencies
             FROM tasks t
             JOIN objectives o ON t.objective_id = o.id
             LEFT JOIN projects p ON t.project_id = p.id
@@ -155,7 +162,7 @@ export const createTask = async (req: Request, res: Response) => {
 
 export const updateTask = async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { title, description, status, priority_score, objective_id, target_date, evidence_url, assignee_id, complexity, is_waiting_third_party } = req.body;
+    const { title, description, status, priority_score, objective_id, target_date, evidence_url, assignee_id, complexity, is_waiting_third_party, blocking_reason } = req.body;
     try {
         const query = `
             UPDATE tasks
@@ -168,7 +175,8 @@ export const updateTask = async (req: Request, res: Response) => {
                 evidence_url = COALESCE($7, evidence_url),
                 assignee_id = $8,
                 complexity = $9,
-                is_waiting_third_party = COALESCE($10, is_waiting_third_party)
+                is_waiting_third_party = COALESCE($10, is_waiting_third_party),
+                blocking_reason = COALESCE($12, blocking_reason)
             WHERE id = $11
             RETURNING *
         `;
@@ -183,7 +191,8 @@ export const updateTask = async (req: Request, res: Response) => {
             assignee_id !== undefined ? (assignee_id || null) : undefined,
             complexity !== undefined ? (complexity || null) : undefined,
             is_waiting_third_party,
-            id
+            id,
+            blocking_reason
         ];
         const result = await db.query(query, values);
         if (result.rows.length === 0) {
@@ -268,30 +277,43 @@ export const deleteTask = async (req: Request, res: Response) => {
 export const getTaskDependencies = async (req: Request, res: Response) => {
     const { id } = req.params;
     try {
-        const query = `
+        // Query 1: Get tasks this task depends on (source_task = this, type = depends_on)
+        const dependsOnQuery = `
             SELECT 
-                td.dependency_type,
                 td.target_task_id,
                 t.title as target_task_title,
                 t.status as target_task_status
             FROM task_dependencies td
             JOIN tasks t ON td.target_task_id = t.id
-            WHERE td.source_task_id = $1
-            ORDER BY td.dependency_type, t.title
+            WHERE td.source_task_id = $1 AND td.dependency_type = 'depends_on'
+            ORDER BY t.title
         `;
-        const result = await db.query(query, [id]);
+        const dependsOnResult = await db.query(dependsOnQuery, [id]);
 
-        // Group by dependency type
+        // Query 2: Get tasks that this task enables (tasks that depend on this task)
+        // This is the INVERSE of depends_on: where target_task = this, type = depends_on
+        const enablesQuery = `
+            SELECT 
+                td.source_task_id as enabled_task_id,
+                t.title as enabled_task_title,
+                t.status as enabled_task_status
+            FROM task_dependencies td
+            JOIN tasks t ON td.source_task_id = t.id
+            WHERE td.target_task_id = $1 AND td.dependency_type = 'depends_on'
+            ORDER BY t.title
+        `;
+        const enablesResult = await db.query(enablesQuery, [id]);
+
         const dependencies = {
-            depends_on: result.rows.filter(r => r.dependency_type === 'depends_on').map(r => ({
+            depends_on: dependsOnResult.rows.map(r => ({
                 id: r.target_task_id,
                 title: r.target_task_title,
                 status: r.target_task_status
             })),
-            enables: result.rows.filter(r => r.dependency_type === 'enables').map(r => ({
-                id: r.target_task_id,
-                title: r.target_task_title,
-                status: r.target_task_status
+            enables: enablesResult.rows.map(r => ({
+                id: r.enabled_task_id,
+                title: r.enabled_task_title,
+                status: r.enabled_task_status
             }))
         };
 
@@ -303,6 +325,9 @@ export const getTaskDependencies = async (req: Request, res: Response) => {
 };
 
 // Update task dependencies
+// This ensures bidirectional consistency:
+// - depends_on: stores (this_task, target_task, 'depends_on')
+// - enables: stores (enabled_task, this_task, 'depends_on') - i.e., enabled_task depends_on this_task
 export const updateTaskDependencies = async (req: Request, res: Response) => {
     const { id } = req.params;
     const { depends_on, enables } = req.body;
@@ -311,12 +336,21 @@ export const updateTaskDependencies = async (req: Request, res: Response) => {
         // Start transaction
         await db.query('BEGIN');
 
-        // Delete existing dependencies for this task
-        await db.query('DELETE FROM task_dependencies WHERE source_task_id = $1', [id]);
+        // Step 1: Delete existing depends_on relationships where THIS task is the source
+        await db.query(
+            "DELETE FROM task_dependencies WHERE source_task_id = $1 AND dependency_type = 'depends_on'",
+            [id]
+        );
 
-        // Insert new depends_on dependencies
+        // Step 2: Delete existing relationships where THIS task is the target (inverse enables)
+        // This is safe because the UI sends the complete list of 'enables'
+        await db.query(
+            "DELETE FROM task_dependencies WHERE target_task_id = $1 AND dependency_type = 'depends_on'",
+            [id]
+        );
+
+        // Step 3: Insert new depends_on dependencies (this task depends on target tasks)
         if (depends_on && Array.isArray(depends_on) && depends_on.length > 0) {
-            console.log(`Processing depends_on for task ${id}:`, depends_on);
             const uniqueDependsOn = [...new Set(depends_on)].filter((targetId: string) => targetId !== id && targetId);
 
             if (uniqueDependsOn.length > 0) {
@@ -327,23 +361,25 @@ export const updateTaskDependencies = async (req: Request, res: Response) => {
                 await db.query(`
                     INSERT INTO task_dependencies (source_task_id, target_task_id, dependency_type)
                     VALUES ${dependsOnValues}
+                    ON CONFLICT (source_task_id, target_task_id, dependency_type) DO NOTHING
                 `);
             }
         }
 
-        // Insert new enables dependencies
+        // Step 4: Insert enables as inverse depends_on (enabled tasks depend on THIS task)
         if (enables && Array.isArray(enables) && enables.length > 0) {
-            console.log(`Processing enables for task ${id}:`, enables);
-            const uniqueEnables = [...new Set(enables)].filter((targetId: string) => targetId !== id && targetId);
+            const uniqueEnables = [...new Set(enables)].filter((enabledId: string) => enabledId !== id && enabledId);
 
             if (uniqueEnables.length > 0) {
-                const enablesValues = uniqueEnables.map((targetId: string) =>
-                    `('${id}', '${targetId}', 'enables')`
+                // For each task this enables, create: (enabled_task depends_on this_task)
+                const enablesValues = uniqueEnables.map((enabledId: string) =>
+                    `('${enabledId}', '${id}', 'depends_on')`
                 ).join(',');
 
                 await db.query(`
                     INSERT INTO task_dependencies (source_task_id, target_task_id, dependency_type)
                     VALUES ${enablesValues}
+                    ON CONFLICT (source_task_id, target_task_id, dependency_type) DO NOTHING
                 `);
             }
         }
