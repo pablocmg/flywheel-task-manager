@@ -57,7 +57,8 @@ const Projects: React.FC = () => {
         title: '',
         description: '',
         objective_ids: [] as string[],
-        target_date: ''
+        target_date: '',
+        complexity: ''
     });
     const [isCreatingTask, setIsCreatingTask] = useState(false);
     const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
@@ -188,7 +189,8 @@ const Projects: React.FC = () => {
                 assignee_id: null,
                 impacted_node_ids: [],
                 weight: 3,
-                week_number: getCurrentWeek()
+                week_number: getCurrentWeek(),
+                complexity: newTask.complexity || null
             };
             console.log('[handleCreateTask] Sending task data:', taskData);
 
@@ -202,7 +204,7 @@ const Projects: React.FC = () => {
                 alert('¡Tarea creada con éxito!');
             }
 
-            setNewTask({ title: '', description: '', objective_ids: [], target_date: '' });
+            setNewTask({ title: '', description: '', objective_ids: [], target_date: '', complexity: '' });
             setEditingTask(null);
             setCreatingTaskForProject(null);
             loadProjectTasks(projectId);
@@ -377,12 +379,34 @@ const Projects: React.FC = () => {
                                                                     👤 Asignado a: {task.assignee_name}
                                                                 </div>
                                                             )}
+                                                            {task.complexity && (
+                                                                <div style={{
+                                                                    display: 'inline-block',
+                                                                    marginTop: '4px',
+                                                                    padding: '2px 8px',
+                                                                    background: task.complexity === 'S' ? 'rgba(34, 197, 94, 0.2)' :
+                                                                        task.complexity === 'M' ? 'rgba(59, 130, 246, 0.2)' :
+                                                                            task.complexity === 'L' ? 'rgba(249, 115, 22, 0.2)' :
+                                                                                task.complexity === 'XL' ? 'rgba(239, 68, 68, 0.2)' :
+                                                                                    'rgba(220, 38, 38, 0.25)',
+                                                                    borderRadius: '12px',
+                                                                    fontSize: '0.7rem',
+                                                                    fontWeight: 600,
+                                                                    color: task.complexity === 'S' ? '#22c55e' :
+                                                                        task.complexity === 'M' ? '#3b82f6' :
+                                                                            task.complexity === 'L' ? '#f97316' :
+                                                                                task.complexity === 'XL' ? '#ef4444' :
+                                                                                    '#dc2626'
+                                                                }}>
+                                                                    {task.complexity}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                         <div style={{ display: 'flex', gap: '4px' }}>
                                                             <button
                                                                 onClick={() => {
                                                                     setEditingTask(task);
-                                                                    setNewTask({ title: task.title, description: task.description, objective_ids: task.objective_id ? [task.objective_id] : [], target_date: task.target_date || '' });
+                                                                    setNewTask({ title: task.title, description: task.description, objective_ids: task.objective_id ? [task.objective_id] : [], target_date: task.target_date || '', complexity: task.complexity || '' });
                                                                     setCreatingTaskForProject(project.id);
                                                                 }}
                                                                 style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -501,6 +525,21 @@ const Projects: React.FC = () => {
                                                         }}
                                                         style={{ width: '100%', marginBottom: '8px', padding: '8px', background: 'var(--bg-app)', border: '1px solid var(--border-color)', color: 'white', fontSize: '0.85rem', borderRadius: '4px' }}
                                                     />
+                                                    <div style={{ marginBottom: '8px' }}>
+                                                        <label style={{ display: 'block', marginBottom: '4px', fontSize: '0.85rem', fontWeight: 600 }}>Complejidad</label>
+                                                        <select
+                                                            value={newTask.complexity}
+                                                            onChange={e => setNewTask({ ...newTask, complexity: e.target.value })}
+                                                            style={{ width: '100%', padding: '8px', background: 'var(--bg-app)', border: '1px solid var(--border-color)', color: 'white', fontSize: '0.85rem', borderRadius: '4px' }}
+                                                        >
+                                                            <option value="">Sin definir</option>
+                                                            <option value="S">S - Pequeña</option>
+                                                            <option value="M">M - Mediana</option>
+                                                            <option value="L">L - Grande</option>
+                                                            <option value="XL">XL - Muy Grande</option>
+                                                            <option value="XXL">XXL - Enorme</option>
+                                                        </select>
+                                                    </div>
                                                     <button
                                                         type="submit"
                                                         disabled={isCreatingTask}
@@ -536,7 +575,7 @@ const Projects: React.FC = () => {
                                                             : (editingTask ? 'Actualizar Tarea' : 'Guardar Tarea')
                                                         }
                                                     </button>
-                                                    <button type="button" onClick={() => { setCreatingTaskForProject(null); setEditingTask(null); setNewTask({ title: '', description: '', objective_ids: [], target_date: '' }); }} style={{ width: '100%', marginTop: '4px', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted)', padding: '8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                                                    <button type="button" onClick={() => { setCreatingTaskForProject(null); setEditingTask(null); setNewTask({ title: '', description: '', objective_ids: [], target_date: '', complexity: '' }); }} style={{ width: '100%', marginTop: '4px', background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted)', padding: '8px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>
                                                         Cancelar
                                                     </button>
                                                 </form>
@@ -546,7 +585,7 @@ const Projects: React.FC = () => {
                                                 onClick={() => {
                                                     setEditingTask(null);
                                                     // Pre-select project objectives
-                                                    setNewTask({ title: '', description: '', objective_ids: project.objective_ids || [], target_date: '' });
+                                                    setNewTask({ title: '', description: '', objective_ids: project.objective_ids || [], target_date: '', complexity: '' });
                                                     setCreatingTaskForProject(project.id);
                                                 }}
                                                 style={{ background: 'none', border: '1px dashed var(--border-color)', color: 'var(--primary)', cursor: 'pointer', padding: '8px', borderRadius: '4px', width: '100%', fontSize: '0.85rem' }}
