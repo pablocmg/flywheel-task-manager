@@ -45,6 +45,7 @@ interface Task {
     assignee_id?: string;
     assignee_name?: string;
     complexity?: 'S' | 'M' | 'L' | 'XL' | 'XXL';
+    is_waiting_third_party?: boolean;
 }
 
 interface SwimlaneData {

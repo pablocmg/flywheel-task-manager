@@ -11,13 +11,14 @@ interface Task {
     evidence_url?: string;
     objective_title?: string;
     impacted_node_count?: number;
-    impacted_nodes?: string[]; // Array of Node IDs
-    node_id?: string; // Added for node color
+    impacted_nodes?: string[];
+    node_id?: string;
     project_name?: string;
     week_number?: number;
     node_color?: string;
     assignee_name?: string;
     complexity?: 'S' | 'M' | 'L' | 'XL' | 'XXL';
+    is_waiting_third_party?: boolean;
 }
 
 interface TaskCardProps {
@@ -32,17 +33,27 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, nodeColors }) 
     const borderColor = task.node_color ||
         ((task.node_id && nodeColors && nodeColors[task.node_id]) ? nodeColors[task.node_id] : 'var(--border-color)');
 
+    // Waiting for third party visual states
+    const isWaiting = task.is_waiting_third_party;
+    const [isHovered, setIsHovered] = React.useState(false);
 
     return (
-        <div className="glass-panel" style={{
-            marginBottom: '8px',
-            padding: '10px 12px',
-            borderLeft: `4px solid ${borderColor}`,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '6px',
-            position: 'relative' // For absolute positioning if needed, or stick to flex
-        }}>
+        <div
+            className="glass-panel"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            style={{
+                marginBottom: '8px',
+                padding: '10px 12px',
+                borderLeft: isWaiting ? 'none' : `4px solid ${borderColor}`,
+                border: isWaiting ? '2px dashed rgba(245, 158, 11, 0.6)' : undefined,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+                position: 'relative',
+                opacity: isWaiting && !isHovered ? 0.6 : 1,
+                transition: 'opacity 0.2s ease, border 0.2s ease'
+            }}>
 
             {/* Objective Breadcrumb & Project Name */}
             <div style={{
@@ -149,6 +160,23 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, nodeColors }) 
                             fontWeight: 500
                         }}>
                             👤 {task.assignee_name}
+                        </div>
+                    )}
+
+                    {/* Waiting for Third Party Icon */}
+                    {task.is_waiting_third_party && (
+                        <div
+                            title="Esperando respuesta externa"
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                color: '#F59E0B',
+                                fontSize: '0.75rem'
+                            }}
+                        >
+                            <Clock size={14} />
+                            <span style={{ fontWeight: 500 }}>Esperando</span>
                         </div>
                     )}
 

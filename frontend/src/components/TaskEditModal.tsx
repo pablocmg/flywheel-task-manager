@@ -21,6 +21,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
         target_date: '',
         evidence_url: '',
         complexity: '' as string,
+        is_waiting_third_party: false,
     });
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -56,7 +57,8 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                 objective_id: task.objective_id || '',
                 target_date: task.target_date ? task.target_date.split('T')[0] : '',
                 evidence_url: task.evidence_url || '',
-                complexity: task.complexity || ''
+                complexity: task.complexity || '',
+                is_waiting_third_party: task.is_waiting_third_party || false
             });
 
             // Set default project for dependency editors
@@ -521,6 +523,39 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                                     <option value="Waiting">Bloqueado / Esperando</option>
                                     <option value="Done">Terminada</option>
                                 </select>
+                            </div>
+
+                            {/* Waiting for Third Party Toggle */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'rgba(245, 158, 11, 0.1)', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                                <div>
+                                    <label style={{ display: 'block', color: '#F59E0B', fontSize: '0.9rem', fontWeight: 500 }}>Esperando a terceros</label>
+                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Tarea pausada por respuesta externa</span>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, is_waiting_third_party: !formData.is_waiting_third_party })}
+                                    style={{
+                                        width: '44px',
+                                        height: '24px',
+                                        borderRadius: '12px',
+                                        border: 'none',
+                                        background: formData.is_waiting_third_party ? '#F59E0B' : 'rgba(255,255,255,0.2)',
+                                        cursor: 'pointer',
+                                        position: 'relative',
+                                        transition: 'background 0.2s ease'
+                                    }}
+                                >
+                                    <div style={{
+                                        width: '18px',
+                                        height: '18px',
+                                        borderRadius: '50%',
+                                        background: 'white',
+                                        position: 'absolute',
+                                        top: '3px',
+                                        left: formData.is_waiting_third_party ? '23px' : '3px',
+                                        transition: 'left 0.2s ease'
+                                    }} />
+                                </button>
                             </div>
 
                             {/* Complexity */}
