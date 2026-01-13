@@ -81,11 +81,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, nodeColors }) 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
                     {task.task_identifier && (
                         <span style={{
-                            background: 'rgba(139, 92, 246, 0.2)',
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            color: '#a78bfa',
-                            fontWeight: 600
+                            color: 'var(--text-muted)',
+                            fontSize: '0.70rem',
+                            fontWeight: 600,
+                            letterSpacing: '0.5px',
+                            textTransform: 'uppercase'
                         }}>
                             {task.task_identifier}
                         </span>
