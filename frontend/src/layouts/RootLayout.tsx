@@ -1,38 +1,55 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
-import { LayoutDashboard, Target, Calendar, CheckSquare, Settings, Folder } from 'lucide-react';
+import { LayoutDashboard, Target, Calendar, CheckSquare, Settings, Folder, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Tooltip } from '../components/Tooltip';
 import './RootLayout.css';
 
 export const RootLayout: React.FC = () => {
+    const [isCollapsed, setIsCollapsed] = useState(() => {
+        const saved = localStorage.getItem('sidebar-collapsed');
+        return saved === 'true';
+    });
+
+    useEffect(() => {
+        localStorage.setItem('sidebar-collapsed', String(isCollapsed));
+    }, [isCollapsed]);
+
+    const toggleCollapse = () => {
+        setIsCollapsed(!isCollapsed);
+    };
+
+    const navItems = [
+        { to: '/', icon: LayoutDashboard, label: 'Panel' },
+        { to: '/nodes', icon: Settings, label: 'Config Nodos' },
+        { to: '/projects', icon: Folder, label: 'Proyectos' },
+        { to: '/planning', icon: Calendar, label: 'Planificación' },
+        { to: '/execution', icon: CheckSquare, label: 'Ejecución' },
+    ];
+
     return (
         <div className="layout-container">
-            <aside className="sidebar">
+            <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
                 <div className="sidebar-header">
                     <Target size={24} />
-                    <span>Flywheel Nav</span>
+                    {!isCollapsed && <span>Flywheel Nav</span>}
                 </div>
                 <nav className="nav-menu">
-                    <NavLink to="/" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                        <LayoutDashboard size={20} />
-                        <span>Panel</span>
-                    </NavLink>
-                    <NavLink to="/nodes" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                        <Settings size={20} />
-                        <span>Config Nodos</span>
-                    </NavLink>
-                    <NavLink to="/projects" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                        <Folder size={20} />
-                        <span>Proyectos</span>
-                    </NavLink>
-                    <NavLink to="/planning" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                        <Calendar size={20} />
-                        <span>Planificación</span>
-                    </NavLink>
-                    <NavLink to="/execution" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                        <CheckSquare size={20} />
-                        <span>Ejecución</span>
-                    </NavLink>
+                    {navItems.map(({ to, icon: Icon, label }) => (
+                        <Tooltip key={to} content={label} disabled={!isCollapsed}>
+                            <NavLink to={to} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                                <Icon size={20} />
+                                {!isCollapsed && <span>{label}</span>}
+                            </NavLink>
+                        </Tooltip>
+                    ))}
                 </nav>
+                <button
+                    className="sidebar-toggle"
+                    onClick={toggleCollapse}
+                    aria-label={isCollapsed ? 'Expandir navegación' : 'Colapsar navegación'}
+                >
+                    {isCollapsed ? <ChevronsRight size={20} /> : <ChevronsLeft size={20} />}
+                </button>
             </aside>
             <main className="main-content">
                 <Outlet />
