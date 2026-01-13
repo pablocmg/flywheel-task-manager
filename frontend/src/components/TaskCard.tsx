@@ -17,6 +17,7 @@ interface Task {
     week_number?: number;
     node_color?: string;
     assignee_name?: string;
+    complexity?: 'S' | 'M' | 'L' | 'XL' | 'XXL';
 }
 
 interface TaskCardProps {
@@ -148,6 +149,31 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, nodeColors }) 
                             fontWeight: 500
                         }}>
                             👤 {task.assignee_name}
+                        </div>
+                    )}
+
+                    {/* Complexity Badge */}
+                    {task.complexity && (
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            background: task.complexity === 'S' ? 'rgba(34, 197, 94, 0.2)' :
+                                task.complexity === 'M' ? 'rgba(59, 130, 246, 0.2)' :
+                                    task.complexity === 'L' ? 'rgba(249, 115, 22, 0.2)' :
+                                        task.complexity === 'XL' ? 'rgba(239, 68, 68, 0.2)' :
+                                            'rgba(220, 38, 38, 0.25)',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            fontSize: '0.75rem',
+                            color: task.complexity === 'S' ? '#22c55e' :
+                                task.complexity === 'M' ? '#3b82f6' :
+                                    task.complexity === 'L' ? '#f97316' :
+                                        task.complexity === 'XL' ? '#ef4444' :
+                                            '#dc2626',
+                            fontWeight: 600
+                        }}>
+                            {task.complexity}
                         </div>
                     )}
                 </div>

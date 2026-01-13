@@ -37,6 +37,7 @@ interface Task {
     objective_title?: string;
     target_date?: string;
     assignee_name?: string;
+    complexity?: 'S' | 'M' | 'L' | 'XL' | 'XXL';
 }
 
 const Projects: React.FC = () => {

@@ -44,6 +44,7 @@ interface Task {
     node_color?: string;
     assignee_id?: string;
     assignee_name?: string;
+    complexity?: 'S' | 'M' | 'L' | 'XL' | 'XXL';
 }
 
 interface SwimlaneData {
@@ -201,7 +202,7 @@ function KanbanColumn({ id, title, tasks, nodeColors, onEdit }: { id: string; ti
                     gap: '4px',
                     paddingRight: '8px',
                     color: 'rgba(255,255,255,0.3)',
-                    fontSize: '0.7rem',
+                    fontSize: '1rem',
                     fontWeight: '600',
                     letterSpacing: '2px',
                     textTransform: 'uppercase'
@@ -220,7 +221,7 @@ function KanbanColumn({ id, title, tasks, nodeColors, onEdit }: { id: string; ti
                     <div style={{
                         writingMode: 'vertical-rl',
                         transform: 'rotate(180deg)'
-                    }}>Prioridad</div>
+                    }}>- Prioridad + </div>
                 </div>
             )}
 
@@ -280,7 +281,8 @@ const Execution: React.FC = () => {
         description: '',
         project_id: '',
         objective_id: '',
-        status: 'Backlog'
+        status: 'Backlog',
+        complexity: '' as string
     });
     const [objectives, setObjectives] = useState<any[]>([]);
     const [isCreatingTask, setIsCreatingTask] = useState(false);
@@ -288,6 +290,9 @@ const Execution: React.FC = () => {
     // Assignee filter state
     const [assignees, setAssignees] = useState<{ id: string, name: string }[]>([]);
     const [selectedAssignee, setSelectedAssignee] = useState<string | null>('all');
+
+    // Complexity filter state (multi-select)
+    const [selectedComplexities, setSelectedComplexities] = useState<Set<string>>(new Set());
 
 
     const sensors = useSensors(
@@ -374,11 +379,21 @@ const Execution: React.FC = () => {
             : tasks.filter(t => t.project_name === selectedProject);
 
         // Further filter by assignee
-        const filteredTasks = selectedAssignee === 'all'
+        const assigneeFiltered = selectedAssignee === 'all'
             ? visibleTasks
             : selectedAssignee === null
                 ? visibleTasks.filter(t => !t.assignee_id)
                 : visibleTasks.filter(t => t.assignee_id === selectedAssignee);
+
+        // Further filter by complexity (multi-select)
+        const filteredTasks = selectedComplexities.size === 0
+            ? assigneeFiltered
+            : assigneeFiltered.filter(t => {
+                if (selectedComplexities.has('none')) {
+                    return !t.complexity || selectedComplexities.has(t.complexity);
+                }
+                return t.complexity && selectedComplexities.has(t.complexity);
+            });
 
         filteredTasks.forEach(task => {
             const groupId = task[groupKey as keyof Task] as string;
@@ -412,7 +427,7 @@ const Execution: React.FC = () => {
         });
 
         return Array.from(grouped.values());
-    }, [tasks, swimlaneMode, selectedProject]);
+    }, [tasks, swimlaneMode, selectedProject, selectedAssignee, selectedComplexities]);
 
     // Derived state for columns (flat view)
     const columns = useMemo(() => {
@@ -430,11 +445,21 @@ const Execution: React.FC = () => {
             : tasks.filter(t => t.project_name === selectedProject);
 
         // Further filter by assignee
-        const filteredTasks = selectedAssignee === 'all'
+        const assigneeFiltered = selectedAssignee === 'all'
             ? visibleTasks
             : selectedAssignee === null
                 ? visibleTasks.filter(t => !t.assignee_id)
                 : visibleTasks.filter(t => t.assignee_id === selectedAssignee);
+
+        // Further filter by complexity (multi-select)
+        const filteredTasks = selectedComplexities.size === 0
+            ? assigneeFiltered
+            : assigneeFiltered.filter(t => {
+                if (selectedComplexities.has('none')) {
+                    return !t.complexity || selectedComplexities.has(t.complexity);
+                }
+                return t.complexity && selectedComplexities.has(t.complexity);
+            });
 
         filteredTasks.forEach(task => {
             let statusKey = task.status;
@@ -452,7 +477,7 @@ const Execution: React.FC = () => {
         });
 
         return cols;
-    }, [tasks, selectedProject]);
+    }, [tasks, selectedProject, selectedAssignee, selectedComplexities]);
 
     // DnD Handlers
     const onDragStart = (event: DragStartEvent) => {
@@ -726,10 +751,11 @@ const Execution: React.FC = () => {
                 objective_id: newTask.objective_id,
                 status: newTask.status,
                 weight: 1,
-                priority_score: 1000
+                priority_score: 1000,
+                complexity: newTask.complexity || null
             });
             setShowCreateTask(false);
-            setNewTask({ title: '', description: '', project_id: '', objective_id: '', status: 'Backlog' });
+            setNewTask({ title: '', description: '', project_id: '', objective_id: '', status: 'Backlog', complexity: '' });
             await loadNodesAndTasks();
         } catch (err) {
             console.error(err);
@@ -916,6 +942,105 @@ const Execution: React.FC = () => {
                 </div>
             )}
 
+            {/* Complexity Filter Chips (Multi-select) */}
+            <div style={{
+                display: 'flex',
+                gap: '8px',
+                marginBottom: '16px',
+                flexWrap: 'wrap',
+                alignItems: 'center'
+            }}>
+                <span style={{
+                    fontSize: '0.85rem',
+                    color: 'var(--text-muted)',
+                    fontWeight: '600',
+                    marginRight: '4px'
+                }}>
+                    Complejidad:
+                </span>
+                <button
+                    onClick={() => setSelectedComplexities(new Set())}
+                    style={{
+                        padding: '6px 14px',
+                        background: selectedComplexities.size === 0 ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                        color: selectedComplexities.size === 0 ? 'white' : 'var(--text-secondary)',
+                        border: `1px solid ${selectedComplexities.size === 0 ? 'var(--primary)' : 'var(--glass-border)'}`,
+                        borderRadius: '20px',
+                        cursor: 'pointer',
+                        fontSize: '0.85rem',
+                        fontWeight: selectedComplexities.size === 0 ? '600' : '400',
+                        transition: 'all 0.2s ease',
+                        whiteSpace: 'nowrap'
+                    }}
+                >
+                    Todos
+                </button>
+                <button
+                    onClick={() => {
+                        const newSet = new Set(selectedComplexities);
+                        if (newSet.has('none')) {
+                            newSet.delete('none');
+                        } else {
+                            newSet.add('none');
+                        }
+                        setSelectedComplexities(newSet);
+                    }}
+                    style={{
+                        padding: '6px 14px',
+                        background: selectedComplexities.has('none') ? 'rgba(156, 163, 175, 0.8)' : 'rgba(156, 163, 175, 0.15)',
+                        color: selectedComplexities.has('none') ? 'white' : '#9ca3af',
+                        border: `1px solid ${selectedComplexities.has('none') ? '#9ca3af' : 'rgba(156, 163, 175, 0.3)'}`,
+                        borderRadius: '20px',
+                        cursor: 'pointer',
+                        fontSize: '0.85rem',
+                        fontWeight: selectedComplexities.has('none') ? '600' : '400',
+                        transition: 'all 0.2s ease',
+                        whiteSpace: 'nowrap'
+                    }}
+                >
+                    Sin definir
+                </button>
+                {(['S', 'M', 'L', 'XL', 'XXL'] as const).map(size => {
+                    const isSelected = selectedComplexities.has(size);
+                    const colors = {
+                        S: { bg: 'rgba(34, 197, 94, 0.15)', bgActive: 'rgba(34, 197, 94, 0.8)', text: '#22c55e', border: 'rgba(34, 197, 94, 0.3)', borderActive: '#22c55e' },
+                        M: { bg: 'rgba(59, 130, 246, 0.15)', bgActive: 'rgba(59, 130, 246, 0.8)', text: '#3b82f6', border: 'rgba(59, 130, 246, 0.3)', borderActive: '#3b82f6' },
+                        L: { bg: 'rgba(249, 115, 22, 0.15)', bgActive: 'rgba(249, 115, 22, 0.8)', text: '#f97316', border: 'rgba(249, 115, 22, 0.3)', borderActive: '#f97316' },
+                        XL: { bg: 'rgba(239, 68, 68, 0.15)', bgActive: 'rgba(239, 68, 68, 0.8)', text: '#ef4444', border: 'rgba(239, 68, 68, 0.3)', borderActive: '#ef4444' },
+                        XXL: { bg: 'rgba(220, 38, 38, 0.15)', bgActive: 'rgba(220, 38, 38, 0.8)', text: '#dc2626', border: 'rgba(220, 38, 38, 0.3)', borderActive: '#dc2626' }
+                    };
+                    const c = colors[size];
+                    return (
+                        <button
+                            key={size}
+                            onClick={() => {
+                                const newSet = new Set(selectedComplexities);
+                                if (newSet.has(size)) {
+                                    newSet.delete(size);
+                                } else {
+                                    newSet.add(size);
+                                }
+                                setSelectedComplexities(newSet);
+                            }}
+                            style={{
+                                padding: '6px 14px',
+                                background: isSelected ? c.bgActive : c.bg,
+                                color: isSelected ? 'white' : c.text,
+                                border: `1px solid ${isSelected ? c.borderActive : c.border}`,
+                                borderRadius: '20px',
+                                cursor: 'pointer',
+                                fontSize: '0.85rem',
+                                fontWeight: isSelected ? '600' : '400',
+                                transition: 'all 0.2s ease',
+                                whiteSpace: 'nowrap'
+                            }}
+                        >
+                            {size}
+                        </button>
+                    );
+                })}
+            </div>
+
             <DndContext
                 sensors={sensors}
                 collisionDetection={closestCorners}
@@ -1034,7 +1159,7 @@ const Execution: React.FC = () => {
                             <button
                                 onClick={() => {
                                     setShowCreateTask(false);
-                                    setNewTask({ title: '', description: '', project_id: '', objective_id: '', status: 'Backlog' });
+                                    setNewTask({ title: '', description: '', project_id: '', objective_id: '', status: 'Backlog', complexity: '' });
                                 }}
                                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
                             >
@@ -1149,6 +1274,31 @@ const Execution: React.FC = () => {
                                 </select>
                             </div>
 
+                            {/* Complexity Dropdown */}
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Complejidad</label>
+                                <select
+                                    value={newTask.complexity}
+                                    onChange={(e) => setNewTask({ ...newTask, complexity: e.target.value })}
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        background: 'var(--bg-app)',
+                                        border: '1px solid var(--glass-border)',
+                                        borderRadius: 'var(--radius-md)',
+                                        color: 'white',
+                                        fontSize: '0.95rem'
+                                    }}
+                                >
+                                    <option value="">Sin definir</option>
+                                    <option value="S">S - Pequeña</option>
+                                    <option value="M">M - Mediana</option>
+                                    <option value="L">L - Grande</option>
+                                    <option value="XL">XL - Muy Grande</option>
+                                    <option value="XXL">XXL - Enorme</option>
+                                </select>
+                            </div>
+
                             <div style={{ display: 'flex', gap: '12px', marginTop: 'var(--space-md)' }}>
                                 <button
                                     onClick={handleCreateTask}
@@ -1170,7 +1320,7 @@ const Execution: React.FC = () => {
                                 <button
                                     onClick={() => {
                                         setShowCreateTask(false);
-                                        setNewTask({ title: '', description: '', project_id: '', objective_id: '', status: 'Backlog' });
+                                        setNewTask({ title: '', description: '', project_id: '', objective_id: '', status: 'Backlog', complexity: '' });
                                     }}
                                     style={{
                                         padding: '12px 24px',

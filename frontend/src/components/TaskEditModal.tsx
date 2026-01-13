@@ -20,6 +20,7 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
         objective_id: '',
         target_date: '',
         evidence_url: '',
+        complexity: '' as string,
     });
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -54,7 +55,8 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                 priority_score: task.priority_score || 0,
                 objective_id: task.objective_id || '',
                 target_date: task.target_date ? task.target_date.split('T')[0] : '',
-                evidence_url: task.evidence_url || ''
+                evidence_url: task.evidence_url || '',
+                complexity: task.complexity || ''
             });
 
             // Set default project for dependency editors
@@ -518,6 +520,27 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                                     <option value="Doing">En Progreso</option>
                                     <option value="Waiting">Bloqueado / Esperando</option>
                                     <option value="Done">Terminada</option>
+                                </select>
+                            </div>
+
+                            {/* Complexity */}
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>Complejidad</label>
+                                <select
+                                    value={formData.complexity}
+                                    onChange={e => setFormData({ ...formData, complexity: e.target.value })}
+                                    style={{
+                                        width: '100%', padding: '10px',
+                                        background: 'var(--bg-card)', color: 'white',
+                                        border: '1px solid var(--border-color)', borderRadius: '6px'
+                                    }}
+                                >
+                                    <option value="">Sin definir</option>
+                                    <option value="S">S - Pequeña</option>
+                                    <option value="M">M - Mediana</option>
+                                    <option value="L">L - Grande</option>
+                                    <option value="XL">XL - Muy Grande</option>
+                                    <option value="XXL">XXL - Enorme</option>
                                 </select>
                             </div>
 
