@@ -18,12 +18,15 @@ export const RootLayout: React.FC = () => {
         setIsCollapsed(!isCollapsed);
     };
 
-    const navItems = [
+    const mainNavItems = [
         { to: '/', icon: LayoutDashboard, label: 'Panel' },
-        { to: '/nodes', icon: Settings, label: 'Config Nodos' },
         { to: '/projects', icon: Folder, label: 'Proyectos' },
         { to: '/planning', icon: Calendar, label: 'Planificación' },
         { to: '/execution', icon: CheckSquare, label: 'Ejecución' },
+    ];
+
+    const settingsNavItems = [
+        { to: '/nodes', icon: Settings, label: 'Configuración' },
     ];
 
     return (
@@ -34,7 +37,7 @@ export const RootLayout: React.FC = () => {
                     {!isCollapsed && <span>Flywheel Nav</span>}
                 </div>
                 <nav className="nav-menu">
-                    {navItems.map(({ to, icon: Icon, label }) => (
+                    {mainNavItems.map(({ to, icon: Icon, label }) => (
                         <Tooltip key={to} content={label} disabled={!isCollapsed}>
                             <NavLink to={to} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                                 <Icon size={20} />
@@ -42,6 +45,19 @@ export const RootLayout: React.FC = () => {
                             </NavLink>
                         </Tooltip>
                     ))}
+
+                    {/* Separator */}
+                    <div style={{ marginTop: 'auto', paddingTop: 'var(--space-md)' }}>
+                        <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.1)', marginBottom: 'var(--space-md)' }}></div>
+                        {settingsNavItems.map(({ to, icon: Icon, label }) => (
+                            <Tooltip key={to} content={label} disabled={!isCollapsed}>
+                                <NavLink to={to} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                                    <Icon size={20} />
+                                    {!isCollapsed && <span>{label}</span>}
+                                </NavLink>
+                            </Tooltip>
+                        ))}
+                    </div>
                 </nav>
                 <button
                     className="sidebar-toggle"
@@ -54,6 +70,6 @@ export const RootLayout: React.FC = () => {
             <main className="main-content">
                 <Outlet />
             </main>
-        </div>
+        </div >
     );
 };

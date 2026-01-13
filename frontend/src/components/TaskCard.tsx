@@ -20,6 +20,7 @@ interface Task {
     complexity?: 'S' | 'M' | 'L' | 'XL' | 'XXL';
     is_waiting_third_party?: boolean;
     has_incomplete_dependencies?: boolean;
+    task_identifier?: string;
 }
 
 interface TaskCardProps {
@@ -65,7 +66,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, nodeColors }) 
                 transition: 'opacity 0.2s ease, border 0.2s ease'
             }}>
 
-            {/* Objective Breadcrumb & Project Name */}
+            {/* Task ID  & Project Name */}
             <div style={{
                 fontSize: '0.70rem',
                 textTransform: 'uppercase',
@@ -78,11 +79,16 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, nodeColors }) 
                 width: '100%'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-                    {task.objective_title && (
-                        <>
-                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--text-muted)', flexShrink: 0 }}></span>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{task.objective_title}</span>
-                        </>
+                    {task.task_identifier && (
+                        <span style={{
+                            background: 'rgba(139, 92, 246, 0.2)',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            color: '#a78bfa',
+                            fontWeight: 600
+                        }}>
+                            {task.task_identifier}
+                        </span>
                     )}
                 </div>
 

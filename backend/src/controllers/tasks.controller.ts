@@ -8,6 +8,7 @@ export const getAllTasks = async (req: Request, res: Response) => {
                    n.name as node_name,
                    n.color as node_color,
                    a.name as assignee_name,
+                   (SELECT project_prefix FROM project_settings LIMIT 1) || '-' || t.task_number as task_identifier,
                    (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count,
                    (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes,
                    (SELECT EXISTS(
@@ -42,6 +43,7 @@ export const getTaskById = async (req: Request, res: Response) => {
                    n.name as node_name,
                    n.color as node_color,
                    a.name as assignee_name,
+                   (SELECT project_prefix FROM project_settings LIMIT 1) || '-' || t.task_number as task_identifier,
                    (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count,
                    (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes
             FROM tasks t
@@ -70,6 +72,7 @@ export const getTasksByObjective = async (req: Request, res: Response) => {
                    o.description as objective_title,
                    p.name as project_name,
                    a.name as assignee_name,
+                   (SELECT project_prefix FROM project_settings LIMIT 1) || '-' || t.task_number as task_identifier,
                    (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count,
                    (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes
             FROM tasks t
@@ -97,6 +100,7 @@ export const getTasksByProject = async (req: Request, res: Response) => {
                    n.name as node_name,
                    n.color as node_color,
                    a.name as assignee_name,
+                   (SELECT project_prefix FROM project_settings LIMIT 1) || '-' || t.task_number as task_identifier,
                    (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count,
                    (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes
             FROM tasks t
@@ -125,6 +129,7 @@ export const getTasksByWeek = async (req: Request, res: Response) => {
                    n.name as node_name,
                    n.color as node_color,
                    a.name as assignee_name,
+                   (SELECT project_prefix FROM project_settings LIMIT 1) || '-' || t.task_number as task_identifier,
                    (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count,
                    (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes
             FROM tasks t
@@ -146,15 +151,32 @@ export const getTasksByWeek = async (req: Request, res: Response) => {
 export const createTask = async (req: Request, res: Response) => {
     const { title, description, objective_id, status, weight, priority_score, evidence_url, target_date, project_id, assignee_id, complexity, is_waiting_third_party } = req.body;
     try {
-        const query = `
-            INSERT INTO tasks (title, description, objective_id, status, weight, priority_score, evidence_url, target_date, project_id, assignee_id, complexity, is_waiting_third_party)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-            RETURNING *
+        // Use transaction to safely get and increment task number
+        await db.query('BEGIN');
+
+        // Get next task number and increment it atomically
+        const settingsQuery = `
+            UPDATE project_settings
+            SET next_task_number = next_task_number + 1
+            RETURNING next_task_number - 1 as task_number
         `;
-        const values = [title, description, objective_id, status || 'Backlog', weight || 1, priority_score || 0, evidence_url, target_date, project_id, assignee_id || null, complexity || null, is_waiting_third_party || false];
+        const settingsResult = await db.query(settingsQuery);
+        const task_number = settingsResult.rows[0].task_number;
+
+        // Insert task with the generated task_number
+        const query = `
+            INSERT INTO tasks (title, description, objective_id, status, weight, priority_score, evidence_url, target_date, project_id, assignee_id, complexity, is_waiting_third_party, task_number)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            RETURNING *,
+                (SELECT project_prefix FROM project_settings LIMIT 1) || '-' || task_number as task_identifier
+        `;
+        const values = [title, description, objective_id, status || 'Backlog', weight || 1, priority_score || 0, evidence_url, target_date, project_id, assignee_id || null, complexity || null, is_waiting_third_party || false, task_number];
         const result = await db.query(query, values);
+
+        await db.query('COMMIT');
         res.status(201).json(result.rows[0]);
     } catch (error) {
+        await db.query('ROLLBACK');
         console.error('Error creating task:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }

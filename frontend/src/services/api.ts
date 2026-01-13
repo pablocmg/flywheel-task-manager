@@ -325,5 +325,21 @@ export const api = {
         });
         if (!res.ok) throw new Error('Failed to get/create assignee');
         return res.json();
+    },
+
+    // Settings
+    getProjectSettings: async () => {
+        const res = await fetch(`${API_URL}/settings`);
+        if (!res.ok) throw new Error('Failed to fetch project settings');
+        return res.json();
+    },
+    updateProjectSettings: async (settings: { project_prefix: string }) => {
+        const res = await fetch(`${API_URL}/settings`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settings),
+        });
+        if (!res.ok) throw new Error('Failed to update project settings');
+        return res.json();
     }
 };

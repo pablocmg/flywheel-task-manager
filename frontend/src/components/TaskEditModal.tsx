@@ -579,6 +579,19 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                                 )}
                                 <div style={{ flex: 1 }}>
                                     <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                                        {/* Task ID Badge */}
+                                        {task.task_identifier && (
+                                            <span style={{
+                                                background: 'rgba(139, 92, 246, 0.2)',
+                                                color: '#a78bfa',
+                                                padding: '2px 8px',
+                                                borderRadius: '4px',
+                                                fontSize: '0.8rem',
+                                                fontWeight: 'bold'
+                                            }}>
+                                                {task.task_identifier}
+                                            </span>
+                                        )}
                                         {/* Project Badge */}
                                         {task.project_name && (
                                             <span style={{ background: 'rgba(96, 165, 250, 0.2)', color: '#60a5fa', padding: '2px 8px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>
