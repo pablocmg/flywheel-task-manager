@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../services/api';
 import { TaskCard } from '../components/TaskCard';
 import { TaskEditModal } from '../components/TaskEditModal';
-import { Plus, X, AlertTriangle } from 'lucide-react';
+import { Plus, AlertTriangle } from 'lucide-react';
+import TaskCreateModal from '../components/TaskCreateModal';
 import {
     DndContext,
     KeyboardSensor,
@@ -283,16 +284,7 @@ const Execution: React.FC = () => {
 
     // Task creation state
     const [showCreateTask, setShowCreateTask] = useState(false);
-    const [newTask, setNewTask] = useState({
-        title: '',
-        description: '',
-        project_id: '',
-        objective_id: '',
-        status: 'Backlog',
-        complexity: '' as string
-    });
-    const [objectives, setObjectives] = useState<any[]>([]);
-    const [isCreatingTask, setIsCreatingTask] = useState(false);
+
 
     // Assignee filter state
     const [assignees, setAssignees] = useState<{ id: string, name: string }[]>([]);
@@ -318,20 +310,9 @@ const Execution: React.FC = () => {
             nodesData.forEach((n: any) => colorMap[n.id] = n.color);
             setNodeColors(colorMap);
 
+
             const data = await api.getAllTasks();
 
-            // Extract unique objectives from tasks (tasks already have project_name and objective info)
-            const objectivesMap = new Map();
-            data.forEach((task: any) => {
-                if (task.objective_id && !objectivesMap.has(task.objective_id)) {
-                    objectivesMap.set(task.objective_id, {
-                        id: task.objective_id,
-                        description: task.objective_title,
-                        project_name: task.project_name
-                    });
-                }
-            });
-            setObjectives(Array.from(objectivesMap.values()));
 
             // Initialize priority_score for tasks that don't have one
             // Assign scores from 1000 downwards based on current order
@@ -838,33 +819,6 @@ const Execution: React.FC = () => {
         setSwimlaneMode(modes[nextIndex]);
     };
 
-    const handleCreateTask = async () => {
-        if (!newTask.title.trim() || !newTask.project_id || !newTask.objective_id) {
-            alert('Debes ingresar un título, seleccionar un proyecto y un objetivo');
-            return;
-        }
-
-        setIsCreatingTask(true);
-        try {
-            await api.createTask({
-                title: newTask.title,
-                description: newTask.description,
-                objective_id: newTask.objective_id,
-                status: newTask.status,
-                weight: 1,
-                priority_score: 1000,
-                complexity: newTask.complexity || null
-            });
-            setShowCreateTask(false);
-            setNewTask({ title: '', description: '', project_id: '', objective_id: '', status: 'Backlog', complexity: '' });
-            await loadNodesAndTasks();
-        } catch (err) {
-            console.error(err);
-            alert('Error al crear la tarea');
-        } finally {
-            setIsCreatingTask(false);
-        }
-    };
 
     return (
         <div style={{ padding: '0 20px', height: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -1329,213 +1283,13 @@ const Execution: React.FC = () => {
                 canGoBack={taskHistory.length > 0}
             />
 
-            {/* Create Task Modal */}
-            {showCreateTask && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: 'rgba(0,0,0,0.7)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 1000
-                }}>
-                    <div className="glass-panel" style={{
-                        width: '90%',
-                        maxWidth: '600px',
-                        padding: 'var(--space-lg)',
-                        maxHeight: '80vh',
-                        overflowY: 'auto'
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
-                            <h2 style={{ margin: 0 }}>Nueva Tarea</h2>
-                            <button
-                                onClick={() => {
-                                    setShowCreateTask(false);
-                                    setNewTask({ title: '', description: '', project_id: '', objective_id: '', status: 'Backlog', complexity: '' });
-                                }}
-                                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '4px' }}
-                            >
-                                <X size={24} />
-                            </button>
-                        </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Título *</label>
-                                <input
-                                    type="text"
-                                    value={newTask.title}
-                                    onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
-                                    placeholder="Título de la tarea"
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px',
-                                        background: 'var(--bg-app)',
-                                        border: '1px solid var(--glass-border)',
-                                        borderRadius: 'var(--radius-md)',
-                                        color: 'white',
-                                        fontSize: '1rem'
-                                    }}
-                                    autoFocus
-                                />
-                            </div>
-
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Descripción</label>
-                                <textarea
-                                    value={newTask.description}
-                                    onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
-                                    placeholder="Descripción de la tarea"
-                                    rows={4}
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px',
-                                        background: 'var(--bg-app)',
-                                        border: '1px solid var(--glass-border)',
-                                        borderRadius: 'var(--radius-md)',
-                                        color: 'white',
-                                        fontSize: '0.95rem',
-                                        resize: 'vertical'
-                                    }}
-                                />
-                            </div>
-
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Proyecto *</label>
-                                <select
-                                    value={newTask.project_id}
-                                    onChange={(e) => {
-                                        const selectedProject = e.target.value;
-                                        // Filter objectives for the selected project
-                                        const filteredObjectives = objectives.filter(
-                                            (obj: any) => obj.project_name === selectedProject
-                                        );
-                                        // Auto-select if only one objective
-                                        const autoSelectedObjective = filteredObjectives.length === 1 ? filteredObjectives[0].id : '';
-                                        setNewTask({ ...newTask, project_id: selectedProject, objective_id: autoSelectedObjective });
-                                    }}
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px',
-                                        background: 'var(--bg-app)',
-                                        border: '1px solid var(--glass-border)',
-                                        borderRadius: 'var(--radius-md)',
-                                        color: 'white',
-                                        fontSize: '0.95rem'
-                                    }}
-                                >
-                                    <option value="">Selecciona un proyecto</option>
-                                    {allProjects.map((project: string) => (
-                                        <option key={project} value={project}>
-                                            {project}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Objetivo *</label>
-                                <select
-                                    value={newTask.objective_id}
-                                    onChange={(e) => setNewTask({ ...newTask, objective_id: e.target.value })}
-                                    disabled={!newTask.project_id}
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px',
-                                        background: 'var(--bg-app)',
-                                        border: '1px solid var(--glass-border)',
-                                        borderRadius: 'var(--radius-md)',
-                                        color: 'white',
-                                        fontSize: '0.95rem',
-                                        opacity: !newTask.project_id ? 0.5 : 1,
-                                        cursor: !newTask.project_id ? 'not-allowed' : 'pointer'
-                                    }}
-                                >
-                                    <option value="">Selecciona un objetivo</option>
-                                    {objectives
-                                        .filter((obj: any) => {
-                                            // Filter objectives by selected project
-                                            if (!newTask.project_id) return false;
-                                            return obj.project_name === newTask.project_id;
-                                        })
-                                        .map((obj: any) => (
-                                            <option key={obj.id} value={obj.id}>
-                                                {obj.description}
-                                            </option>
-                                        ))}
-                                </select>
-                            </div>
-
-                            {/* Complexity Dropdown */}
-                            <div>
-                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: 'var(--text-secondary)' }}>Complejidad</label>
-                                <select
-                                    value={newTask.complexity}
-                                    onChange={(e) => setNewTask({ ...newTask, complexity: e.target.value })}
-                                    style={{
-                                        width: '100%',
-                                        padding: '10px',
-                                        background: 'var(--bg-app)',
-                                        border: '1px solid var(--glass-border)',
-                                        borderRadius: 'var(--radius-md)',
-                                        color: 'white',
-                                        fontSize: '0.95rem'
-                                    }}
-                                >
-                                    <option value="">Sin definir</option>
-                                    <option value="S">S - Pequeña</option>
-                                    <option value="M">M - Mediana</option>
-                                    <option value="L">L - Grande</option>
-                                    <option value="XL">XL - Muy Grande</option>
-                                    <option value="XXL">XXL - Enorme</option>
-                                </select>
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '12px', marginTop: 'var(--space-md)' }}>
-                                <button
-                                    onClick={handleCreateTask}
-                                    disabled={isCreatingTask}
-                                    style={{
-                                        flex: 1,
-                                        padding: '12px',
-                                        background: isCreatingTask ? 'var(--text-muted)' : 'var(--primary)',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: 'var(--radius-md)',
-                                        cursor: isCreatingTask ? 'not-allowed' : 'pointer',
-                                        fontWeight: 'bold',
-                                        fontSize: '1rem'
-                                    }}
-                                >
-                                    {isCreatingTask ? 'Creando...' : 'Crear Tarea'}
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setShowCreateTask(false);
-                                        setNewTask({ title: '', description: '', project_id: '', objective_id: '', status: 'Backlog', complexity: '' });
-                                    }}
-                                    style={{
-                                        padding: '12px 24px',
-                                        background: 'transparent',
-                                        color: 'var(--text-muted)',
-                                        border: '1px solid var(--glass-border)',
-                                        borderRadius: 'var(--radius-md)',
-                                        cursor: 'pointer',
-                                        fontWeight: 'bold',
-                                        fontSize: '1rem'
-                                    }}
-                                >
-                                    Cancelar
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* Unified Task Creation Modal */}
+            <TaskCreateModal
+                isOpen={showCreateTask}
+                onClose={() => setShowCreateTask(false)}
+                onTaskCreated={loadNodesAndTasks}
+            />
         </div>
     );
 };
