@@ -17,7 +17,25 @@ export const getAllTasks = async (req: Request, res: Response) => {
                        WHERE td.source_task_id = t.id 
                          AND td.dependency_type = 'depends_on'
                          AND dep_task.status != 'Done'
-                   )) as has_incomplete_dependencies
+                   )) as has_incomplete_dependencies,
+                   (SELECT COUNT(*) 
+                    FROM task_dependencies td 
+                    WHERE td.source_task_id = t.id 
+                      AND td.dependency_type = 'depends_on') as blocked_by_count,
+                   (SELECT COUNT(*) 
+                    FROM task_dependencies td 
+                    WHERE td.target_task_id = t.id 
+                      AND td.dependency_type = 'depends_on') as blocking_count,
+                   (SELECT json_agg(json_build_object('id', dep_task.id, 'title', dep_task.title))
+                    FROM task_dependencies td
+                    JOIN tasks dep_task ON td.target_task_id = dep_task.id
+                    WHERE td.source_task_id = t.id 
+                      AND td.dependency_type = 'depends_on') as blocked_by_tasks,
+                   (SELECT json_agg(json_build_object('id', dep_task.id, 'title', dep_task.title))
+                    FROM task_dependencies td
+                    JOIN tasks dep_task ON td.source_task_id = dep_task.id
+                    WHERE td.target_task_id = t.id 
+                      AND td.dependency_type = 'depends_on') as blocking_tasks
             FROM tasks t
             JOIN objectives o ON t.objective_id = o.id
             LEFT JOIN projects p ON t.project_id = p.id
@@ -45,7 +63,11 @@ export const getTaskById = async (req: Request, res: Response) => {
                    a.name as assignee_name,
                    (SELECT project_prefix FROM project_settings LIMIT 1) || '-' || t.task_number as task_identifier,
                    (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count,
-                   (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes
+                   (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes,
+                   (SELECT COUNT(*) FROM task_dependencies td WHERE td.source_task_id = t.id AND td.dependency_type = 'depends_on') as blocked_by_count,
+                   (SELECT COUNT(*) FROM task_dependencies td WHERE td.target_task_id = t.id AND td.dependency_type = 'depends_on') as blocking_count,
+                   (SELECT json_agg(json_build_object('id', dep_task.id, 'title', dep_task.title)) FROM task_dependencies td JOIN tasks dep_task ON td.target_task_id = dep_task.id WHERE td.source_task_id = t.id AND td.dependency_type = 'depends_on') as blocked_by_tasks,
+                   (SELECT json_agg(json_build_object('id', dep_task.id, 'title', dep_task.title)) FROM task_dependencies td JOIN tasks dep_task ON td.source_task_id = dep_task.id WHERE td.target_task_id = t.id AND td.dependency_type = 'depends_on') as blocking_tasks
             FROM tasks t
             JOIN objectives o ON t.objective_id = o.id
             LEFT JOIN projects p ON t.project_id = p.id
@@ -74,7 +96,11 @@ export const getTasksByObjective = async (req: Request, res: Response) => {
                    a.name as assignee_name,
                    (SELECT project_prefix FROM project_settings LIMIT 1) || '-' || t.task_number as task_identifier,
                    (SELECT COUNT(*) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_node_count,
-                   (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes
+                   (SELECT json_agg(target_node_id) FROM cross_node_impacts cni WHERE cni.source_task_id = t.id) as impacted_nodes,
+                   (SELECT COUNT(*) FROM task_dependencies td WHERE td.source_task_id = t.id AND td.dependency_type = 'depends_on') as blocked_by_count,
+                   (SELECT COUNT(*) FROM task_dependencies td WHERE td.target_task_id = t.id AND td.dependency_type = 'depends_on') as blocking_count,
+                   (SELECT json_agg(json_build_object('id', dep_task.id, 'title', dep_task.title)) FROM task_dependencies td JOIN tasks dep_task ON td.target_task_id = dep_task.id WHERE td.source_task_id = t.id AND td.dependency_type = 'depends_on') as blocked_by_tasks,
+                   (SELECT json_agg(json_build_object('id', dep_task.id, 'title', dep_task.title)) FROM task_dependencies td JOIN tasks dep_task ON td.source_task_id = dep_task.id WHERE td.target_task_id = t.id AND td.dependency_type = 'depends_on') as blocking_tasks
             FROM tasks t
             JOIN objectives o ON t.objective_id = o.id
             LEFT JOIN projects p ON t.project_id = p.id

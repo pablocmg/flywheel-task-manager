@@ -1,5 +1,5 @@
 import React from 'react';
-import { Circle, Clock, ExternalLink, AlertTriangle } from 'lucide-react';
+import { Circle, Clock, ExternalLink, AlertTriangle, Link, GitMerge } from 'lucide-react';
 
 interface Task {
     id: string;
@@ -21,7 +21,47 @@ interface Task {
     is_waiting_third_party?: boolean;
     has_incomplete_dependencies?: boolean;
     task_identifier?: string;
+    blocked_by_count?: number;
+    blocking_count?: number;
+    blocked_by_tasks?: Array<{ id: string, title: string }>;
+    blocking_tasks?: Array<{ id: string, title: string }>;
 }
+// Tooltip Component
+const Tooltip: React.FC<{ content: string, children: React.ReactNode }> = ({ content, children }) => {
+    const [show, setShow] = React.useState(false);
+    return (
+        <div
+            style={{ position: 'relative', display: 'inline-block' }}
+            onMouseEnter={() => setShow(true)}
+            onMouseLeave={() => setShow(false)}
+        >
+            {children}
+            {show && (
+                <div style={{
+                    position: 'absolute',
+                    bottom: '100%',
+                    left: '0',
+                    marginBottom: '8px',
+                    padding: '8px 12px',
+                    background: 'rgba(0,0,0,0.95)',
+                    color: 'white',
+                    borderRadius: '6px',
+                    fontSize: '0.75rem',
+                    whiteSpace: 'normal',
+                    maxWidth: '400px',
+                    minWidth: '180px',
+                    lineHeight: '1.4',
+                    zIndex: 1000,
+                    pointerEvents: 'none',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                    wordBreak: 'break-word'
+                }}>
+                    {content}
+                </div>
+            )}
+        </div>
+    );
+};
 
 interface TaskCardProps {
     task: Task;
@@ -124,7 +164,29 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit, nodeColors }) 
                     )}
                 </div>
             </div>
+            {/* Indicadores de Dependencias */}
+            {((task.blocked_by_count || 0) > 0 || (task.blocking_count || 0) > 0) && (
 
+
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginRight: 'auto' }}>
+                    {(task.blocked_by_count || 0) > 0 && (
+                        <Tooltip content={`Esperando a: ${task.blocked_by_tasks?.map(t => t.title).join(', ') || ''}`}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#F87171', fontSize: '0.75rem', fontWeight: 500, cursor: 'help' }}>
+                                <Link size={14} />
+                                <span>{task.blocked_by_count}</span>
+                            </div>
+                        </Tooltip>
+                    )}
+                    {(task.blocking_count || 0) > 0 && (
+                        <Tooltip content={`Bloqueando a: ${task.blocking_tasks?.map(t => t.title).join(', ') || ''}`}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#A78BFA', fontSize: '0.75rem', fontWeight: 500, cursor: 'help' }}>
+                                <GitMerge size={14} />
+                                <span>{task.blocking_count}</span>
+                            </div>
+                        </Tooltip>
+                    )}
+                </div>
+            )}
             {/* Badges & Controls */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', marginTop: 'var(--space-sm)', flexWrap: 'wrap' }}>
                 {/* Visual Indicators */}
