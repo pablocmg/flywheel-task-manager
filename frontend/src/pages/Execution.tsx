@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../services/api';
 import { TaskCard } from '../components/TaskCard';
 import { TaskEditModal } from '../components/TaskEditModal';
-import { Plus, AlertTriangle } from 'lucide-react';
+import { Plus, AlertTriangle, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import TaskCreateModal from '../components/TaskCreateModal';
 import {
     DndContext,
@@ -194,72 +194,89 @@ function SwimlaneRow({
 }
 
 // Column Component (for flat view)
-function KanbanColumn({ id, title, tasks, nodeColors, onEdit }: { id: string; title: string; tasks: Task[]; nodeColors: Record<string, string>; onEdit: (t: Task) => void }) {
+function KanbanColumn({ id, title, tasks, nodeColors, onEdit, isCollapsed, onToggleCollapse }: {
+    id: string;
+    title: string;
+    tasks: Task[];
+    nodeColors: Record<string, string>;
+    onEdit: (t: Task) => void;
+    isCollapsed?: boolean;
+    onToggleCollapse?: () => void;
+}) {
     const { setNodeRef } = useDroppable({ id: id, data: { type: 'Column', id } });
 
     return (
-        <div style={{ display: 'flex', gap: '8px', height: '100%', maxHeight: 'calc(100vh - 200px)' }}>
-            {/* Priority Indicator - Only show on first column */}
-            {id === 'Backlog' && (
-                <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '4px',
-                    paddingRight: '8px',
-                    color: 'rgba(255,255,255,0.3)',
-                    fontSize: '1rem',
-                    fontWeight: '600',
-                    letterSpacing: '2px',
-                    textTransform: 'uppercase'
-                }}>
-                    <div style={{
-                        fontSize: '1.5rem',
-                        color: 'rgba(255,255,255,0.4)',
-                        lineHeight: 1
-                    }}>↑</div>
-                    <div style={{
-                        width: '2px',
-                        height: '60px',
-                        background: 'linear-gradient(to bottom, rgba(255,255,255,0.3), rgba(255,255,255,0.1))',
-                        borderRadius: '1px'
-                    }}></div>
+        <div
+            ref={setNodeRef}
+            style={{
+                background: 'var(--glass-bg)',
+                border: '1px solid var(--glass-border)',
+                borderRadius: '8px',
+                width: isCollapsed ? '50px' : '300px',
+                minWidth: isCollapsed ? '50px' : '300px',
+                display: 'flex',
+                flexDirection: 'column',
+                height: '100%',
+                transition: 'width 0.3s ease, min-width 0.3s ease',
+                overflow: 'hidden'
+            }}
+        >
+            <div style={{
+                padding: 'var(--space-md)',
+                borderBottom: '1px solid var(--glass-border)',
+                fontWeight: 'bold',
+                color: 'var(--primary)',
+                display: 'flex',
+                justifyContent: isCollapsed ? 'center' : 'space-between',
+                alignItems: 'center',
+                position: 'sticky',
+                top: 0,
+                background: 'var(--glass-bg)',
+                zIndex: 5,
+                flexDirection: isCollapsed ? 'column' : 'row',
+                gap: isCollapsed ? 'var(--space-xs)' : '0'
+            }}>
+                {!isCollapsed && title}
+                {isCollapsed && (
                     <div style={{
                         writingMode: 'vertical-rl',
-                        transform: 'rotate(180deg)'
-                    }}>- Prioridad + </div>
-                </div>
-            )}
-
-            <div
-                ref={setNodeRef}
-                style={{
-                    background: 'var(--glass-bg)',
-                    border: '1px solid var(--glass-border)',
-                    borderRadius: '8px',
-                    width: '300px',
-                    minWidth: '300px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    height: '100%',
-                }}
-            >
-                <div style={{
-                    padding: 'var(--space-md)',
-                    borderBottom: '1px solid var(--glass-border)',
-                    fontWeight: 'bold',
-                    color: 'var(--primary)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
+                        transform: 'rotate(180deg)',
+                        fontSize: '0.9rem'
+                    }}>{title}</div>
+                )}
+                {onToggleCollapse && (
+                    <button
+                        onClick={onToggleCollapse}
+                        style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--primary)',
+                            cursor: 'pointer',
+                            padding: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            fontSize: '0.9rem'
+                        }}
+                        title={isCollapsed ? 'Expandir' : 'Colapsar'}
+                    >
+                        {isCollapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
+                    </button>
+                )}
+                <span style={{
+                    fontSize: '0.8rem',
+                    color: 'var(--text-muted)',
+                    background: 'rgba(255,255,255,0.1)',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    marginTop: isCollapsed ? '0' : '0',
+                    marginBottom: isCollapsed ? 'var(--space-xs)' : '0',
+                    order: isCollapsed ? -1 : 0
                 }}>
-                    {title}
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '12px' }}>
-                        {tasks.length}
-                    </span>
-                </div>
+                    {tasks.length}
+                </span>
+            </div>
 
+            {!isCollapsed && (
                 <div style={{ flex: 1, padding: '8px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
                         {tasks.map((task) => (
@@ -267,8 +284,9 @@ function KanbanColumn({ id, title, tasks, nodeColors, onEdit }: { id: string; ti
                         ))}
                     </SortableContext>
                 </div>
-            </div>
+            )}
         </div>
+
     );
 }
 
@@ -292,6 +310,10 @@ const Execution: React.FC = () => {
 
     // Complexity filter state (multi-select)
     const [selectedComplexities, setSelectedComplexities] = useState<Set<string>>(new Set());
+
+    // Collapsible columns state
+    const [isBacklogCollapsed, setIsBacklogCollapsed] = useState(false);
+    const [isTodoCollapsed, setIsTodoCollapsed] = useState(false);
 
 
     const sensors = useSensors(
@@ -821,15 +843,21 @@ const Execution: React.FC = () => {
 
 
     return (
-        <div style={{ padding: '0 20px', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <div style={{
+            height: 'calc(100vh - calc(var(--space-xl) * 2))',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
+        }}>
             {/* === UNIFIED TOOLBAR: Everything in ONE line === */}
             <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                padding: '8px 0',
+                padding: '0 0 8px 0',
                 gap: '12px',
-                flexWrap: 'wrap'
+                flexWrap: 'wrap',
+                flexShrink: 0 // Prevent shrinking
             }}>
                 {/* LEFT: Action Buttons */}
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -988,9 +1016,47 @@ const Execution: React.FC = () => {
                         display: 'flex',
                         gap: '16px',
                         overflowX: 'auto',
-                        paddingBottom: '20px',
-                        height: '100%'
+                        flex: 1,
+                        paddingBottom: 'var(--space-sm)',
+                        position: 'relative',
+                        paddingLeft: '50px' // Space for priority indicator
                     }}>
+                        {/* Priority Indicator - Fixed Position */}
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '4px',
+                            color: 'rgba(255,255,255,0.3)',
+                            fontSize: '1rem',
+                            fontWeight: '600',
+                            letterSpacing: '2px',
+                            textTransform: 'uppercase',
+                            position: 'fixed',
+                            left: '70px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            zIndex: 100,
+                            padding: '8px',
+                            pointerEvents: 'none'
+                        }}>
+                            <div style={{
+                                fontSize: '1.5rem',
+                                color: 'rgba(255,255,255,0.4)',
+                                lineHeight: 1
+                            }}>↑</div>
+                            <div style={{
+                                width: '2px',
+                                height: '60px',
+                                background: 'linear-gradient(to bottom, rgba(255,255,255,0.3), rgba(255,255,255,0.1))',
+                                borderRadius: '1px'
+                            }}></div>
+                            <div style={{
+                                writingMode: 'vertical-rl',
+                                transform: 'rotate(180deg)'
+                            }}>- Prioridad +</div>
+                        </div>
                         {COLUMNS.map(col => (
                             <KanbanColumn
                                 key={col.id}
@@ -999,6 +1065,12 @@ const Execution: React.FC = () => {
                                 tasks={columns[col.id as keyof typeof columns] || []}
                                 nodeColors={nodeColors}
                                 onEdit={setEditingTask}
+                                isCollapsed={col.id === 'Backlog' ? isBacklogCollapsed : col.id === 'Todo' ? isTodoCollapsed : false}
+                                onToggleCollapse={
+                                    col.id === 'Backlog' ? () => setIsBacklogCollapsed(!isBacklogCollapsed) :
+                                        col.id === 'Todo' ? () => setIsTodoCollapsed(!isTodoCollapsed) :
+                                            undefined
+                                }
                             />
                         ))}
                     </div>
