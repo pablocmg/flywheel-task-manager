@@ -24,7 +24,6 @@ const NodesConfig: React.FC = () => {
 
     // Project settings state
     const [projectPrefix, setProjectPrefix] = useState('SDL');
-    const [nextTaskNumber, setNextTaskNumber] = useState(1);
     const [settingsLoading, setSettingsLoading] = useState(false);
 
     useEffect(() => {
@@ -52,7 +51,6 @@ const NodesConfig: React.FC = () => {
         try {
             const settings = await api.getProjectSettings();
             setProjectPrefix(settings.project_prefix);
-            setNextTaskNumber(settings.next_task_number);
         } catch (err) {
             console.error('Error loading project settings:', err);
         }
@@ -133,71 +131,80 @@ const NodesConfig: React.FC = () => {
     return (
         <div>
             {/* Page Title */}
-            <h1 style={{ marginBottom: 'var(--space-lg)' }}>Configuración</h1>
+            <h1 style={{ marginBottom: 'var(--space-lg)' }}>Configuración de Proyecto</h1>
 
             {/* Project Settings Section */}
-            <div className="glass-panel" style={{ padding: 'var(--space-md)', marginBottom: 'var(--space-xl)' }}>
-                <h2 style={{ margin: '0 0 var(--space-md) 0', fontSize: '1.2rem' }}>Configuración de Proyecto</h2>
+            <div className="glass-panel" style={{
+                padding: '16px 24px',
+                marginBottom: 'var(--space-xl)'
+            }}>
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '24px',
+                    marginBottom: '8px',
+                    flexWrap: 'wrap'
+                }}>
 
-                <div style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', padding: 'var(--space-sm)', borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-md)' }}>
-                    <p style={{ margin: 0, fontSize: '0.85rem', color: '#f59e0b' }}>
-                        ⚠️ Cambiar el prefijo afectará a <strong>todas las tareas</strong>. Ejemplo: SDL-5 → PRJ-5
-                    </p>
-                </div>
-
-                <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <div style={{ flex: '0 0 auto' }}>
-                        <label style={{ display: 'block', marginBottom: 'var(--space-xs)', fontSize: '0.9rem' }}>Prefijo del Proyecto</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 500 }}>Prefijo:</span>
                         <input
                             type="text"
                             value={projectPrefix}
                             onChange={e => setProjectPrefix(e.target.value.toUpperCase())}
                             maxLength={3}
                             style={{
-                                padding: '8px 12px',
-                                background: 'var(--bg-app)',
-                                border: '1px solid var(--text-muted)',
+                                padding: '6px 12px',
+                                background: 'rgba(0,0,0,0.2)',
+                                border: '1px solid var(--border-color)',
                                 color: 'white',
-                                borderRadius: 'var(--radius-md)',
-                                width: '100px',
+                                borderRadius: 'var(--radius-sm)',
+                                width: '80px',
                                 textAlign: 'center',
-                                fontSize: '1rem',
+                                fontSize: '0.95rem',
                                 fontWeight: 'bold',
-                                textTransform: 'uppercase'
+                                textTransform: 'uppercase',
+                                letterSpacing: '1px'
                             }}
                             placeholder="SDL"
                         />
-                    </div>
-                    <div style={{ flex: '0 0 auto' }}>
-                        <label style={{ display: 'block', marginBottom: 'var(--space-xs)', fontSize: '0.9rem' }}>Próximo ID</label>
-                        <div style={{
-                            padding: '8px 12px',
-                            background: 'rgba(139, 92, 246, 0.1)',
-                            border: '1px solid rgba(139, 92, 246, 0.3)',
-                            borderRadius: 'var(--radius-md)',
-                            color: '#a78bfa',
-                            fontWeight: 'bold'
-                        }}>
-                            {projectPrefix}-{nextTaskNumber}
-                        </div>
-                    </div>
-                    <div style={{ flex: '0 0 auto', alignSelf: 'flex-end' }}>
                         <button
                             onClick={handleSaveProjectSettings}
                             disabled={settingsLoading}
                             style={{
-                                background: 'var(--success)',
-                                color: 'white',
-                                border: 'none',
-                                padding: '8px 16px',
-                                borderRadius: 'var(--radius-md)',
+                                background: 'transparent',
+                                color: settingsLoading ? 'var(--text-muted)' : 'var(--primary)',
+                                border: '1px solid',
+                                borderColor: settingsLoading ? 'transparent' : 'var(--primary)',
+                                padding: '6px 16px',
+                                borderRadius: 'var(--radius-sm)',
                                 cursor: settingsLoading ? 'not-allowed' : 'pointer',
-                                opacity: settingsLoading ? 0.6 : 1
+                                opacity: settingsLoading ? 0.7 : 1,
+                                fontSize: '0.85rem',
+                                fontWeight: 600,
+                                transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={e => {
+                                if (!settingsLoading) {
+                                    e.currentTarget.style.background = 'var(--primary)';
+                                    e.currentTarget.style.color = 'white';
+                                }
+                            }}
+                            onMouseLeave={e => {
+                                if (!settingsLoading) {
+                                    e.currentTarget.style.background = 'transparent';
+                                    e.currentTarget.style.color = 'var(--primary)';
+                                }
                             }}
                         >
-                            {settingsLoading ? 'Guardando...' : 'Guardar Cambios'}
+                            {settingsLoading ? 'Guardando...' : 'Guardar'}
                         </button>
                     </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.8rem', fontStyle: 'italic' }}>
+                    <span>ℹ️ Cambiar el prefijo actualiza todas las tareas (ej: SDL-5 → PRJ-5)</span>
                 </div>
             </div>
 

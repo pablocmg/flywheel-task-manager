@@ -26,7 +26,7 @@ export const RootLayout: React.FC = () => {
     ];
 
     const settingsNavItems = [
-        { to: '/nodes', icon: Settings, label: 'Configuración' },
+        { to: '/nodes', icon: Settings, label: 'Configuración de Proyecto' },
     ];
 
     return (
