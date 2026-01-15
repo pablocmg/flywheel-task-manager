@@ -255,9 +255,30 @@ export const updateTask = async (req: Request, res: Response) => {
 
 export const updateTaskStatus = async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, force } = req.body;
     try {
-        const query = 'UPDATE tasks SET status = $1 WHERE id = $2 RETURNING *';
+        // Definition of Done validation: check for deliverables when changing to Done
+        if (status === 'Done' && !force) {
+            const deliverableCheck = await db.query(
+                'SELECT final_deliverables FROM tasks WHERE id = $1',
+                [id]
+            );
+
+            if (deliverableCheck.rows.length === 0) {
+                return res.status(404).json({ error: 'Task not found' });
+            }
+
+            const deliverables = deliverableCheck.rows[0].final_deliverables || [];
+            if (deliverables.length === 0) {
+                return res.status(400).json({
+                    error: 'EVIDENCE_REQUIRED',
+                    message: 'Task requires at least one deliverable to be marked as Done',
+                    deliverableCount: 0
+                });
+            }
+        }
+
+        const query = 'UPDATE tasks SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *';
         const result = await db.query(query, [status, id]);
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Task not found' });

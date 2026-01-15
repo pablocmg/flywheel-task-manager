@@ -247,6 +247,72 @@ export const api = {
         return res.json();
     },
 
+    // Task Comments
+    getTaskComments: async (taskId: string) => {
+        const res = await fetch(`${API_URL}/tasks/${taskId}/comments`);
+        if (!res.ok) throw new Error('Failed to fetch comments');
+        return res.json();
+    },
+    createComment: async (taskId: string, data: { content: string; user_name?: string; attachments?: any[] }) => {
+        const res = await fetch(`${API_URL}/tasks/${taskId}/comments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error('Failed to create comment');
+        return res.json();
+    },
+    deleteComment: async (commentId: string) => {
+        const res = await fetch(`${API_URL}/tasks/comments/${commentId}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to delete comment');
+        return res.json();
+    },
+
+    // Task Deliverables (Evidence)
+    getTaskDeliverables: async (taskId: string) => {
+        const res = await fetch(`${API_URL}/tasks/${taskId}/deliverables`);
+        if (!res.ok) throw new Error('Failed to fetch deliverables');
+        return res.json();
+    },
+    addDeliverable: async (taskId: string, data: { type: string; url: string; title?: string; thumbnail?: string; added_by?: string }) => {
+        const res = await fetch(`${API_URL}/tasks/${taskId}/deliverables`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error('Failed to add deliverable');
+        return res.json();
+    },
+    removeDeliverable: async (taskId: string, index: number) => {
+        const res = await fetch(`${API_URL}/tasks/${taskId}/deliverables/${index}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Failed to remove deliverable');
+        return res.json();
+    },
+    promoteToDeliverable: async (taskId: string, data: { comment_id: string; attachment_index: number; added_by?: string }) => {
+        const res = await fetch(`${API_URL}/tasks/${taskId}/deliverables/promote`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+        if (!res.ok) throw new Error('Failed to promote to deliverable');
+        return res.json();
+    },
+    canMarkAsDone: async (taskId: string) => {
+        const res = await fetch(`${API_URL}/tasks/${taskId}/can-complete`);
+        if (!res.ok) throw new Error('Failed to check task completion');
+        return res.json();
+    },
+    uploadFile: async (taskId: string, file: File) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch(`${API_URL}/tasks/${taskId}/upload`, {
+            method: 'POST',
+            body: formData,
+        });
+        if (!res.ok) throw new Error('Failed to upload file');
+        return res.json();
+    },
+
     // Interactions
     getInteractions: async () => {
         const res = await fetch(`${API_URL}/interactions`);

@@ -14,6 +14,7 @@ const interactionsRoutes = require('./backend/routes/interactions.routes');
 const projectsRoutes = require('./backend/routes/projects.routes');
 const keyResultsRoutes = require('./backend/routes/key_results.routes');
 const assigneesRoutes = require('./backend/routes/assignees.routes');
+const commentsRoutes = require('./backend/routes/comments.routes');
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.use('/api/interactions', interactionsRoutes.default || interactionsRoutes);
 app.use('/api/projects', projectsRoutes.default || projectsRoutes);
 app.use('/api/key-results', keyResultsRoutes.default || keyResultsRoutes);
 app.use('/api/assignees', assigneesRoutes.default || assigneesRoutes);
+app.use('/api/tasks', commentsRoutes.default || commentsRoutes); // Comments & Deliverables nested under tasks
 
 // Debug endpoint to check env vars
 app.get('/api/debug', (req, res) => {
