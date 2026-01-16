@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { AlertTriangle, Upload, Link2, X } from 'lucide-react';
+import { AlertTriangle, Upload, Link2 } from 'lucide-react';
 import { api } from '../services/api';
 
 interface EvidenceRequiredModalProps {
