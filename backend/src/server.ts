@@ -13,6 +13,7 @@ import projectsRoutes from './routes/projects.routes';
 import keyResultsRoutes from './routes/key_results.routes';
 import assigneesRoutes from './routes/assignees.routes';
 import settingsRoutes from './routes/settings.routes';
+import commentsRoutes from './routes/comments.routes';
 
 dotenv.config();
 
@@ -32,6 +33,7 @@ app.use('/api/projects', projectsRoutes);
 app.use('/api/key-results', keyResultsRoutes);
 app.use('/api/assignees', assigneesRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/tasks', commentsRoutes);
 
 const PORT = process.env.PORT || 3000;
 

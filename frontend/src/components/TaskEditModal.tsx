@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { X, Calendar, ExternalLink, ArrowLeft, AlertTriangle } from 'lucide-react';
+import { EvidenceSection } from './EvidenceSection';
+import { CommentsSection } from './CommentsSection';
+import { EvidenceRequiredModal } from './EvidenceRequiredModal';
 
 interface TaskEditModalProps {
     isOpen: boolean;
@@ -51,6 +54,20 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
     const [isDeleting, setIsDeleting] = useState(false);
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
 
+    // Evidence & Deliverables
+    const [deliverables, setDeliverables] = useState<any[]>([]);
+    const [showEvidenceRequired, setShowEvidenceRequired] = useState(false);
+
+    // Refresh deliverables
+    const loadDeliverables = async () => {
+        try {
+            const data = await api.getTaskDeliverables(task.id);
+            setDeliverables(data);
+        } catch (error) {
+            console.error('Error loading deliverables:', error);
+        }
+    };
+
     useEffect(() => {
         if (task) {
             setFormData({
@@ -98,6 +115,10 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                         setAssigneeId(null);
                         setAssigneeName('');
                     }
+
+                    // Load deliverables
+                    await loadDeliverables();
+
                 } catch (error) {
                     console.error('Error loading dependencies:', error);
                 } finally {
@@ -135,6 +156,15 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
 
             // If status changed here, we should ensure consistency
             if (task.status !== formData.status) {
+                // Check for Definition of Done
+                if (formData.status === 'Done' && deliverables.length === 0) {
+                    setShowEvidenceRequired(true);
+                    // Revert status change visually until evidence is provided
+                    setFormData(prev => ({ ...prev, status: task.status }));
+                    setLoading(false);
+                    return;
+                }
+
                 await api.updateTaskStatus(task.id, formData.status);
             }
 
@@ -148,9 +178,25 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
             onClose();
         } catch (error: any) {
             console.error('Error updating task:', error);
-            setErrorMessage(`Error al actualizar tarea: ${error.message || 'Error desconocido'}`);
+            if (error.message?.includes('EVIDENCE_REQUIRED')) {
+                setShowEvidenceRequired(true);
+            } else {
+                setErrorMessage(`Error al actualizar tarea: ${error.message || 'Error desconocido'}`);
+            }
         }
         setLoading(false);
+    };
+
+    const handlePromoteToEvidence = async (commentId: string, attachmentIndex: number) => {
+        try {
+            await api.promoteToDeliverable(task.id, {
+                comment_id: commentId,
+                attachment_index: attachmentIndex
+            });
+            await loadDeliverables();
+        } catch (error) {
+            console.error('Error promoting evidence:', error);
+        }
     };
 
     const handleDelete = () => {
@@ -443,6 +489,25 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
             {renderDependencyEditor('depends_on')}
             {renderDependencyEditor('enables')}
 
+            <EvidenceRequiredModal
+                isOpen={showEvidenceRequired}
+                taskId={task.id}
+                taskTitle={task.title}
+                onClose={() => setShowEvidenceRequired(false)}
+                onSuccess={async () => {
+                    await loadDeliverables();
+                    setShowEvidenceRequired(false);
+                    // Try to set status to Done again
+                    try {
+                        await api.updateTaskStatus(task.id, 'Done');
+                        onUpdate();
+                        onClose();
+                    } catch (error) {
+                        console.error('Failed to complete task after evidence:', error);
+                    }
+                }}
+            />
+
             <div className="modal-overlay" style={{
                 position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
                 background: 'rgba(0,0,0,0.8)', // Darker backdrop
@@ -646,12 +711,10 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                                         />
 
                                         <div style={{ marginTop: '20px' }}>
-                                            <h4 style={{ color: 'var(--text-secondary)' }}>Evidencia</h4>
-                                            <input
-                                                value={formData.evidence_url}
-                                                onChange={e => setFormData({ ...formData, evidence_url: e.target.value })}
-                                                placeholder="URL de evidencia (Notion, Drive, etc.)"
-                                                style={{ width: '100%', padding: '10px', background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'white', borderRadius: '6px' }}
+                                            <EvidenceSection
+                                                taskId={task.id}
+                                                deliverables={deliverables}
+                                                onUpdate={loadDeliverables}
                                             />
                                         </div>
 
@@ -679,6 +742,12 @@ export const TaskEditModal: React.FC<TaskEditModalProps> = ({ isOpen, onClose, t
                                                 />
                                             </div>
                                         )}
+
+                                        <CommentsSection
+                                            taskId={task.id}
+                                            onPromoteToEvidence={handlePromoteToEvidence}
+                                            deliverables={deliverables}
+                                        />
                                     </form>
                                 </div>
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../services/api';
 import { TaskCard } from '../components/TaskCard';
 import { TaskEditModal } from '../components/TaskEditModal';
+import { EvidenceRequiredModal } from '../components/EvidenceRequiredModal';
 import { Plus, AlertTriangle, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import TaskCreateModal from '../components/TaskCreateModal';
 import {
@@ -297,6 +298,11 @@ const Execution: React.FC = () => {
     const [allProjects, setAllProjects] = useState<string[]>([]);
     const [activeTask, setActiveTask] = useState<Task | null>(null);
     const [editingTask, setEditingTask] = useState<Task | null>(null);
+
+    // Evidence Required Modal State
+    const [showEvidenceModal, setShowEvidenceModal] = useState(false);
+    const [evidenceTaskId, setEvidenceTaskId] = useState('');
+    const [evidenceTaskTitle, setEvidenceTaskTitle] = useState('');
     const [taskHistory, setTaskHistory] = useState<Task[]>([]);
     const [swimlaneMode, setSwimlaneMode] = useState<SwimlaneMode>('none');
 
@@ -660,6 +666,22 @@ const Execution: React.FC = () => {
             if (!['Doing', 'Waiting'].includes(newStatus)) {
                 console.warn("Waiting tasks can only be in Doing or Waiting");
                 return; // Prevent move
+            }
+        }
+
+        // Rule: Definition of Done - Evidence Required
+        if (newStatus === 'Done' && activeTask.status !== 'Done') {
+            try {
+                const check = await api.canMarkAsDone(actualTaskId);
+                if (!check.canComplete) {
+                    setEvidenceTaskId(actualTaskId);
+                    setEvidenceTaskTitle(activeTask.title);
+                    setShowEvidenceModal(true);
+                    return; // Prevent move
+                }
+            } catch (err) {
+                console.error("Error checking deliverables:", err);
+                return; // Prevent move on error
             }
         }
         // ------------------------
@@ -1361,6 +1383,18 @@ const Execution: React.FC = () => {
                 isOpen={showCreateTask}
                 onClose={() => setShowCreateTask(false)}
                 onTaskCreated={loadNodesAndTasks}
+            />
+
+            <EvidenceRequiredModal
+                isOpen={showEvidenceModal}
+                taskId={evidenceTaskId}
+                taskTitle={evidenceTaskTitle}
+                onClose={() => setShowEvidenceModal(false)}
+                onSuccess={async () => {
+                    await api.updateTaskStatus(evidenceTaskId, 'Done');
+                    setShowEvidenceModal(false);
+                    handleUpdate();
+                }}
             />
         </div>
     );

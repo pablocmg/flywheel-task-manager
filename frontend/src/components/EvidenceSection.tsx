@@ -130,8 +130,19 @@ export const EvidenceSection: React.FC<EvidenceSectionProps> = ({
     };
 
     // Get icon for file type
-    const getFileIcon = (type: string) => {
-        switch (type) {
+    const getFileIcon = (item: Deliverable) => {
+        const url = item.url.toLowerCase();
+        if (url.includes('google.com/drive') || url.includes('docs.google.com')) {
+            return <div style={{ color: '#34a853', fontWeight: 'bold' }}>Drive</div>;
+        }
+        if (url.includes('figma.com')) {
+            return <div style={{ color: '#f24e1e', fontWeight: 'bold' }}>Figma</div>;
+        }
+        if (url.includes('youtube.com') || url.includes('youtu.be')) {
+            return <div style={{ color: '#ff0000', fontWeight: 'bold' }}>Youtube</div>;
+        }
+
+        switch (item.type) {
             case 'image': return <Image size={32} />;
             case 'video': return <Film size={32} />;
             case 'link': return <ExternalLink size={32} />;
@@ -206,24 +217,34 @@ export const EvidenceSection: React.FC<EvidenceSectionProps> = ({
                                     color: 'var(--text-muted)',
                                     background: 'rgba(255,255,255,0.02)'
                                 }}>
-                                    {getFileIcon(item.type)}
+                                    {getFileIcon(item)}
                                 </div>
                             )}
 
                             {/* Title */}
                             <div style={{
-                                padding: 'var(--space-xs)',
-                                fontSize: '0.75rem',
-                                color: 'var(--text-secondary)',
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis'
+                                padding: 'var(--space-sm)',
+                                fontSize: '0.8rem',
+                                color: 'var(--text-primary)',
+                                fontWeight: 500,
+                                background: 'rgba(255,255,255,0.03)',
+                                minHeight: '40px',
+                                display: 'flex',
+                                alignItems: 'center'
                             }}>
                                 <a
                                     href={item.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    style={{ color: 'inherit', textDecoration: 'none' }}
+                                    style={{
+                                        color: 'inherit',
+                                        textDecoration: 'none',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        display: '-webkit-box',
+                                        WebkitLineClamp: 2,
+                                        WebkitBoxOrient: 'vertical'
+                                    }}
                                 >
                                     {item.title || item.url}
                                 </a>
@@ -232,6 +253,7 @@ export const EvidenceSection: React.FC<EvidenceSectionProps> = ({
                             {/* Remove button */}
                             {!readOnly && (
                                 <button
+                                    type="button"
                                     onClick={() => handleRemove(index)}
                                     style={{
                                         position: 'absolute',
@@ -335,6 +357,7 @@ export const EvidenceSection: React.FC<EvidenceSectionProps> = ({
                                 }}
                             />
                             <button
+                                type="button"
                                 onClick={handleAddLink}
                                 disabled={!linkUrl.trim()}
                                 style={{
@@ -350,6 +373,7 @@ export const EvidenceSection: React.FC<EvidenceSectionProps> = ({
                                 Agregar
                             </button>
                             <button
+                                type="button"
                                 onClick={() => { setShowLinkInput(false); setLinkUrl(''); setLinkTitle(''); }}
                                 style={{
                                     padding: 'var(--space-xs) var(--space-sm)',
@@ -365,6 +389,7 @@ export const EvidenceSection: React.FC<EvidenceSectionProps> = ({
                         </div>
                     ) : (
                         <button
+                            type="button"
                             onClick={() => setShowLinkInput(true)}
                             style={{
                                 display: 'flex',

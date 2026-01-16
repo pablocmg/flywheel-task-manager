@@ -21,11 +21,13 @@ interface Comment {
 interface CommentsSectionProps {
     taskId: string;
     onPromoteToEvidence: (commentId: string, attachmentIndex: number) => void;
+    deliverables?: any[];
 }
 
 export const CommentsSection: React.FC<CommentsSectionProps> = ({
     taskId,
-    onPromoteToEvidence
+    onPromoteToEvidence,
+    deliverables = []
 }) => {
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState('');
@@ -140,6 +142,34 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
         setActiveMenu(null);
     };
 
+    // Simple Markdown-like renderer
+    const renderContent = (content: string) => {
+        if (!content) return null;
+
+        // Escape HTML
+        let html = content
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+
+        // Bold: **text**
+        html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+        // Code blocks: ```text```
+        html = html.replace(/```([\s\S]*?)```/g, '<pre style="background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px; font-family: monospace; font-size: 0.8rem; overflow-x: auto; margin: 5px 0;">$1</pre>');
+
+        // Inline code: `text`
+        html = html.replace(/`(.*?)`/g, '<code style="background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 3px; font-family: monospace;">$1</code>');
+
+        // Links: https://...
+        html = html.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color: var(--primary); text-decoration: underline;">$1</a>');
+
+        // Line breaks
+        html = html.replace(/\n/g, '<br />');
+
+        return <div dangerouslySetInnerHTML={{ __html: html }} />;
+    };
+
     // Format date
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr);
@@ -210,7 +240,23 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
                                 }}>
                                     {comment.user_name}
                                 </span>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+                                    {deliverables.some(d => d.promoted_from_comment_id === comment.id) && (
+                                        <span style={{
+                                            fontSize: '0.65rem',
+                                            background: 'rgba(52, 211, 153, 0.2)',
+                                            color: '#34d399',
+                                            padding: '1px 6px',
+                                            borderRadius: '10px',
+                                            fontWeight: 'bold',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '3px'
+                                        }}>
+                                            <Award size={10} />
+                                            Evidencia
+                                        </span>
+                                    )}
                                     <span style={{
                                         fontSize: '0.7rem',
                                         color: 'var(--text-muted)'
@@ -218,6 +264,7 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
                                         {formatDate(comment.created_at)}
                                     </span>
                                     <button
+                                        type="button"
                                         onClick={() => setActiveMenu(activeMenu === comment.id ? null : comment.id)}
                                         style={{
                                             background: 'transparent',
@@ -243,6 +290,7 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
                                             minWidth: '150px'
                                         }}>
                                             <button
+                                                type="button"
                                                 onClick={() => handleDelete(comment.id)}
                                                 style={{
                                                     display: 'flex',
@@ -267,14 +315,14 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
 
                             {/* Content */}
                             {comment.content && (
-                                <p style={{
+                                <div style={{
                                     margin: '0 0 var(--space-xs) 0',
                                     fontSize: '0.85rem',
                                     color: 'var(--text-primary)',
-                                    whiteSpace: 'pre-wrap'
+                                    lineHeight: '1.5'
                                 }}>
-                                    {comment.content}
-                                </p>
+                                    {renderContent(comment.content)}
+                                </div>
                             )}
 
                             {/* Attachments */}
@@ -313,6 +361,7 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
                                             )}
                                             {/* Promote button */}
                                             <button
+                                                type="button"
                                                 onClick={() => handlePromote(comment.id, idx)}
                                                 title="Marcar como Evidencia Final"
                                                 style={{
@@ -361,6 +410,7 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
                         }}>
                             📎 {att.name.substring(0, 15)}...
                             <button
+                                type="button"
                                 onClick={() => removeAttachment(idx)}
                                 style={{
                                     background: 'transparent',
@@ -385,6 +435,7 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
                 borderTop: '1px solid var(--glass-border)'
             }}>
                 <button
+                    type="button"
                     onClick={() => fileInputRef.current?.click()}
                     style={{
                         background: 'transparent',
@@ -397,24 +448,61 @@ export const CommentsSection: React.FC<CommentsSectionProps> = ({
                 >
                     <Paperclip size={18} />
                 </button>
-                <input
-                    type="text"
-                    placeholder="Escribe un comentario... (Ctrl+V para pegar imágenes)"
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    onPaste={handlePaste}
-                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSubmit()}
-                    style={{
-                        flex: 1,
-                        padding: 'var(--space-sm)',
-                        background: 'var(--glass-bg)',
-                        border: '1px solid var(--glass-border)',
-                        borderRadius: 'var(--radius-sm)',
-                        color: 'var(--text-primary)',
-                        fontSize: '0.85rem'
-                    }}
-                />
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    {/* Toolbar */}
+                    <div style={{
+                        display: 'flex',
+                        gap: '10px',
+                        padding: '2px 5px',
+                        borderBottom: '1px solid rgba(255,255,255,0.05)'
+                    }}>
+                        <button type="button" onClick={() => {
+                            const start = (document.activeElement as HTMLTextAreaElement).selectionStart;
+                            const end = (document.activeElement as HTMLTextAreaElement).selectionEnd;
+                            const text = newComment;
+                            setNewComment(text.substring(0, start) + '**' + text.substring(start, end) + '**' + text.substring(end));
+                        }} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontWeight: 'bold' }}>B</button>
+                        <button type="button" onClick={() => {
+                            const start = (document.activeElement as HTMLTextAreaElement).selectionStart;
+                            const text = newComment;
+                            setNewComment(text.substring(0, start) + '\n- ' + text.substring(start));
+                        }} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>• List</button>
+                        <button type="button" onClick={() => {
+                            const start = (document.activeElement as HTMLTextAreaElement).selectionStart;
+                            const text = newComment;
+                            setNewComment(text.substring(0, start) + '\n```\n\n```' + text.substring(start));
+                        }} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem' }}>&lt;/&gt; Code</button>
+                    </div>
+                    <textarea
+                        placeholder="Escribe un comentario... (Ctrl+V para pegar imágenes)"
+                        value={newComment}
+                        onChange={(e) => setNewComment(e.target.value)}
+                        onPaste={handlePaste}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                handleSubmit();
+                            }
+                        }}
+                        style={{
+                            width: '100%',
+                            minHeight: '60px',
+                            maxHeight: '150px',
+                            padding: 'var(--space-sm)',
+                            background: 'var(--glass-bg)',
+                            border: '1px solid var(--glass-border)',
+                            borderRadius: 'var(--radius-sm)',
+                            color: 'var(--text-primary)',
+                            fontSize: '0.85rem',
+                            resize: 'vertical',
+                            fontFamily: 'inherit'
+                        }}
+                    />
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textAlign: 'right' }}>
+                        Ctrl+Enter para enviar
+                    </div>
+                </div>
                 <button
+                    type="button"
                     onClick={handleSubmit}
                     disabled={isLoading || (!newComment.trim() && attachments.length === 0)}
                     style={{
