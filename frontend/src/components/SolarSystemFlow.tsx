@@ -156,11 +156,12 @@ function SatelliteNode(props: any) {
 // --- Custom Node: Sun (Central) ---
 function SunNode(props: any) {
     const { data } = props;
-    // satelliteAngles: array of { id: string, angle: number } for each satellite
+    // satelliteAngles: array of { id: string, angle: number, outputLabel?: string } for each satellite
     const satelliteAngles = data.satelliteAngles || [];
 
     // Calculate handle positions on the OUTER edge of the colored ring
     const RING_RADIUS = 195; // Outer edge of the gradient ring (node is 400px, so radius 200 minus small padding)
+    const LABEL_RADIUS = 150; // Position labels in the middle of the colored ring
     const NODE_SIZE = 400;
     const CENTER = NODE_SIZE / 2;
 
@@ -178,11 +179,14 @@ function SunNode(props: any) {
             }}
         >
             {/* Dynamic handles positioned at the center of each satellite's color segment */}
-            {satelliteAngles.map((sat: { id: string; angle: number }) => {
+            {satelliteAngles.map((sat: { id: string; angle: number; outputLabel?: string }) => {
                 // Calculate position on the ring for this satellite's color segment
-                // The angle is already calculated to be at the center of the segment
                 const handleX = CENTER + RING_RADIUS * Math.cos(sat.angle);
                 const handleY = CENTER + RING_RADIUS * Math.sin(sat.angle);
+
+                // Calculate position for the label (middle of the colored ring)
+                const labelX = CENTER + LABEL_RADIUS * Math.cos(sat.angle);
+                const labelY = CENTER + LABEL_RADIUS * Math.sin(sat.angle);
 
                 return (
                     <React.Fragment key={sat.id}>
@@ -210,6 +214,30 @@ function SunNode(props: any) {
                                 transform: 'translate(-50%, -50%)'
                             }}
                         />
+                        {/* Label inside the color segment - always vertical, centered */}
+                        {sat.outputLabel && (
+                            <div
+                                style={{
+                                    position: 'absolute',
+                                    left: `${labelX}px`,
+                                    top: `${labelY}px`,
+                                    transform: 'translate(-50%, -50%)',
+                                    backgroundColor: 'rgba(19, 34, 48, 0.85)',
+                                    color: '#F6F4EC',
+                                    fontSize: '10px',
+                                    fontWeight: 600,
+                                    textAlign: 'center',
+                                    padding: '4px 8px',
+                                    borderRadius: '4px',
+                                    whiteSpace: 'nowrap',
+                                    zIndex: 15,
+                                    pointerEvents: 'none',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                                }}
+                            >
+                                {sat.outputLabel}
+                            </div>
+                        )}
                     </React.Fragment>
                 );
             })}
@@ -406,9 +434,40 @@ function getCircularLayout(
         }
     }
 
-    // 3. Create Edges from INTERACTIONS only (database-driven)
+    // 3. Collect satellite→core labels (what each satellite sends to the core)
+    // These will be displayed inside the color segments on the ring
+    const satelliteOutputLabels = new Map<string, string>();
     interactions.forEach((inter) => {
-        const cleanLabel = inter.label.replace(/^(Output|Input):\s*/i, '');
+        if (inter.target_node_id === centralNode.id) {
+            // This satellite sends something to the core
+            const cleanLabel = inter.label
+                .replace(/^(Output|Input):\s*/i, '')
+                .replace(/^[A-Z]:\s*/i, '') // Remove "F: " type prefixes
+                .trim();
+            if (cleanLabel) {
+                satelliteOutputLabels.set(inter.source_node_id, cleanLabel);
+            }
+        }
+    });
+
+    // Update satelliteAngles with output labels
+    const satelliteAnglesWithLabels = satelliteAngles.map(sat => ({
+        ...sat,
+        outputLabel: satelliteOutputLabels.get(sat.id)
+    }));
+
+    // Update the Sun node data with labels
+    const sunNode = rfNodes.find(n => n.id === centralNode.id);
+    if (sunNode) {
+        sunNode.data.satelliteAngles = satelliteAnglesWithLabels;
+    }
+
+    // 4. Create Edges from INTERACTIONS only (database-driven)
+    interactions.forEach((inter) => {
+        const cleanLabel = inter.label
+            .replace(/^(Output|Input):\s*/i, '')
+            .replace(/^[A-Z]:\s*/i, '') // Remove "F: " type prefixes
+            .trim();
 
         const sourcePos = nodePositions.get(inter.source_node_id);
         const targetPos = nodePositions.get(inter.target_node_id);
@@ -436,13 +495,17 @@ function getCircularLayout(
             targetHandlePos = `target-${getBestHandleForConnection(targetPos, sourcePos)}`;
         }
 
+        // For satellite→core edges: NO label on edge (shown inside ring instead)
+        // For core→satellite and satellite→satellite: show label on edge
+        const edgeLabel = isTargetCentral ? undefined : cleanLabel;
+
         rfEdges.push({
             id: inter.id,
             source: inter.source_node_id,
             target: inter.target_node_id,
             sourceHandle: sourceHandlePos,
             targetHandle: targetHandlePos,
-            label: cleanLabel,
+            label: edgeLabel,
             type: 'smoothstep',
             animated: true,
             style: { stroke: '#94a3b8', strokeWidth: 2 },
