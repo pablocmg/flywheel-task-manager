@@ -47,7 +47,7 @@ function SatelliteNode(props: any) {
         <div
             className="relative group"
             onClick={data.onClick}
-            style={{ cursor: 'pointer' }}
+            style={{ cursor: 'pointer', position: 'relative' }}
         >
             {/* Handles at 8 positions for flexible edge routing */}
             {/* Cardinal directions */}
@@ -69,46 +69,46 @@ function SatelliteNode(props: any) {
             <Handle type="target" position={Position.Bottom} id="target-bottom-left" style={{ opacity: 0, left: '20%' }} />
             <Handle type="source" position={Position.Bottom} id="source-bottom-left" style={{ opacity: 0, left: '20%' }} />
 
+            {/* Revenue Badge - COMPLETELY OUTSIDE the card */}
+            {data.generates_revenue && (
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: '-20px',
+                        right: '-20px',
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                        border: '3px solid #132230',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 0 15px rgba(16, 185, 129, 0.6), 0 4px 8px rgba(0,0,0,0.3)',
+                        zIndex: 30,
+                        animation: 'pulse-revenue 2s ease-in-out infinite'
+                    }}
+                >
+                    <span style={{ fontSize: '18px', fontWeight: 'bold', color: 'white' }}>💰</span>
+                </div>
+            )}
+
+            {/* Card Container */}
             <div
                 style={{
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'flex-start',
-                    padding: '40px 24px 50px 24px',
+                    padding: '12px 24px 30px 24px',
                     borderRadius: '32px',
                     backgroundColor: '#F6F4EC',
                     boxShadow: '0 10px 20px rgba(0,0,0,0.2)',
                     width: '240px',
                     height: '280px',
-                    boxSizing: 'border-box',
-                    position: 'relative'
+                    boxSizing: 'border-box'
                 }}
             >
-                {/* Revenue Badge */}
-                {data.generates_revenue && (
-                    <div
-                        style={{
-                            position: 'absolute',
-                            top: '12px',
-                            right: '12px',
-                            width: '36px',
-                            height: '36px',
-                            borderRadius: '50%',
-                            background: 'linear-gradient(135deg, #10b981, #059669)',
-                            border: '3px solid #132230',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            boxShadow: '0 0 15px rgba(16, 185, 129, 0.6), 0 4px 8px rgba(0,0,0,0.3)',
-                            zIndex: 10,
-                            animation: 'pulse-revenue 2s ease-in-out infinite'
-                        }}
-                    >
-                        <span style={{ fontSize: '18px', fontWeight: 'bold', color: 'white' }}>💰</span>
-                    </div>
-                )}
-
                 {/* Title Pill */}
                 <div
                     style={{
@@ -119,7 +119,7 @@ function SatelliteNode(props: any) {
                         padding: '8px 20px',
                         fontWeight: 700,
                         fontSize: '14px',
-                        marginBottom: '24px',
+                        marginBottom: '20px',
                         maxWidth: '100%',
                         wordWrap: 'break-word',
                         overflowWrap: 'break-word',
@@ -141,7 +141,7 @@ function SatelliteNode(props: any) {
                         width: '100%',
                         overflow: 'hidden',
                         display: '-webkit-box',
-                        WebkitLineClamp: 4,
+                        WebkitLineClamp: 5,
                         WebkitBoxOrient: 'vertical',
                         textAlign: 'center'
                     }}
